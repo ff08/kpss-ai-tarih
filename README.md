@@ -98,9 +98,8 @@ npx expo start
 
 ## İçerik ekleme
 
-- Tüm konu/alt konu ağacı ve **bilgi kartları** [`api/prisma/seed.ts`](api/prisma/seed.ts) + [`api/prisma/seed-cards-data.ts`](api/prisma/seed-cards-data.ts) içindedir (her alt konuda 2 kart; toplam **60** bilgi kartı).
+- Konu/alt konu ağacı [`api/prisma/seed.ts`](api/prisma/seed.ts) içindedir. Kartlar [`api/prisma/seed-generated.ts`](api/prisma/seed-generated.ts) ile üretilir: her alt konu için **10** bilgi kartı, **10** soru–cevap, **10** çoktan seçmeli (toplam **900** kart; `PER_SUBTOPIC` sabiti ile değiştirilebilir).
 - Seed’i yeniden çalıştırmak mevcut kartları silip baştan yükler: `cd api && npm run db:seed` (`DATABASE_URL` gerekli).
-- Yeni kart eklemek için `seed-cards-data.ts` içinde `seedInformationCards` dizisine kayıt ekleyin; `id` değerleri benzersiz olmalıdır.
 
 ## Lisans
 

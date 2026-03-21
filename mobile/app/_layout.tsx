@@ -1,21 +1,28 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { colors } from "../constants/theme";
+import { ThemeProvider, useTheme } from "../contexts/ThemeContext";
 
 export default function RootLayout() {
   return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
+  );
+}
+
+function RootLayoutInner() {
+  const { colors, mode } = useTheme();
+
+  return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
-          headerTitleStyle: { fontWeight: "600" },
-          headerShadowVisible: false,
+          headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
-        <Stack.Screen name="index" options={{ title: "KPSS AI Tarih" }} />
+        <Stack.Screen name="index" />
       </Stack>
     </>
   );

@@ -18,7 +18,7 @@ async function build() {
   app.get("/topics", async () => {
     const topics = await prisma.topic.findMany({
       orderBy: { sortOrder: "asc" },
-      select: { id: true, title: true, sortOrder: true },
+      select: { id: true, title: true, description: true, sortOrder: true },
     });
     return { topics };
   });
@@ -67,7 +67,7 @@ async function build() {
         cards: {
           where: { kind },
           orderBy: { id: "asc" },
-          select: { id: true, kind: true, title: true, content: true, tag: true },
+          select: { id: true, kind: true, difficulty: true, title: true, content: true, tag: true, hint: true },
         },
       },
     });

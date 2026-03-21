@@ -8,16 +8,24 @@ datasource db {
 }
 
 model Topic {
-  id        String     @id
-  title     String
-  sortOrder Int        @default(0)
-  subtopics Subtopic[]
+  id          String     @id
+  title       String
+  /// Ana sayfada konu başlığının altındaki kısa açıklama
+  description String?
+  sortOrder   Int        @default(0)
+  subtopics   Subtopic[]
 }
 
 enum CardKind {
   INFORMATION
   OPEN_QA
   MCQ
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
 }
 
 model Subtopic {
@@ -35,11 +43,14 @@ model InformationCard {
   id         String   @id
   subtopicId String
   subtopic   Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
-  kind       CardKind @default(INFORMATION)
-  title      String
-  content    String   @db.Text
-  tag        String?
-  createdAt  DateTime @default(now())
+  kind        CardKind           @default(INFORMATION)
+  difficulty  QuestionDifficulty?
+  title       String
+  content     String               @db.Text
+  tag         String?
+  /// Soru–cevap kartlarında soru yüzündeki kısa ipucu metni
+  hint        String?
+  createdAt   DateTime             @default(now())
 
   @@index([subtopicId])
   @@index([subtopicId, kind])

@@ -1,8 +1,26 @@
-import { PrismaClient } from "@prisma/client";
-import { seedInformationCards } from "./seed-cards-data";
-import { seedQaMcqBySubtopic } from "./seed-qa-mcq-data";
+import { PrismaClient, type Prisma } from "@prisma/client";
+import {
+  flattenSubtopics,
+  generatedInformationRows,
+  generatedMcqRows,
+  generatedQaRows,
+  PER_SUBTOPIC,
+} from "./seed-generated";
 
 const prisma = new PrismaClient();
+
+/** Ana sayfa konu listesinde başlık altına kısa açıklama */
+const TOPIC_DESCRIPTIONS: Record<string, string> = {
+  pre_islam_turk: "Orta Asya, göç ve İslamiyet öncesi Türk boyları",
+  turk_islam: "Karahanlı’dan Büyük Selçuklu’ya Türk–İslam medeniyeti",
+  anadolu_selcuk: "Anadolu beylikleri ve Türkiye Selçuklu Devleti",
+  ottoman_political: "Kuruluş, yükseliş, duraklama ve dağılma dönemleri",
+  ottoman_culture: "Divan’dan taşraya teşkilat, hukuk ve toplumsal yapı",
+  ottoman_xx: "Trablusgarp, Balkan Savaşları, I. Dünya Savaşı ve Mondros",
+  war_independence: "Kongreler, cepheler, diplomatik zafer",
+  ataturk_principles: "İlkeler, inkılaplar ve çağdaşlaşma",
+  modern_turk_world: "İki savaş arası, II. Dünya Savaşı ve soğuk savaş",
+};
 
 const topics: { id: string; title: string; sortOrder: number; subtopics: { id: string; title: string; sortOrder: number }[] }[] =
   [
@@ -220,6 +238,7 @@ async function main() {
         id: t.id,
         title: t.title,
         sortOrder: t.sortOrder,
+        description: TOPIC_DESCRIPTIONS[t.id] ?? null,
         subtopics: {
           create: t.subtopics.map((s) => ({
             id: s.id,
@@ -231,49 +250,49 @@ async function main() {
     });
   }
 
-  for (const c of seedInformationCards) {
-    await prisma.informationCard.create({
-      data: {
-        id: c.id,
-        subtopicId: c.subtopicId,
-        kind: "INFORMATION",
-        title: c.title,
-        content: c.content,
-        tag: c.tag,
-      },
-    });
+  const flat = flattenSubtopics(topics);
+  const rows: Prisma.InformationCardCreateManyInput[] = [];
+  for (const s of flat) {
+    for (let n = 1; n <= PER_SUBTOPIC; n++) {
+      const inf = generatedInformationRows(s, n);
+      rows.push({
+        id: inf.id,
+        subtopicId: inf.subtopicId,
+        kind: inf.kind,
+        title: inf.title,
+        content: inf.content,
+        tag: inf.tag,
+      });
+      const qa = generatedQaRows(s, n);
+      rows.push({
+        id: qa.id,
+        subtopicId: qa.subtopicId,
+        kind: qa.kind,
+        title: qa.title,
+        content: qa.content,
+        tag: qa.tag,
+        hint: qa.hint,
+      });
+      const mcq = generatedMcqRows(s, n);
+      rows.push({
+        id: mcq.id,
+        subtopicId: mcq.subtopicId,
+        kind: mcq.kind,
+        difficulty: mcq.difficulty,
+        title: mcq.title,
+        content: mcq.content,
+        tag: mcq.tag,
+      });
+    }
   }
-
-  for (const row of seedQaMcqBySubtopic) {
-    await prisma.informationCard.create({
-      data: {
-        id: `qa_${row.subtopicId}`,
-        subtopicId: row.subtopicId,
-        kind: "OPEN_QA",
-        title: row.qa.title,
-        content: row.qa.content,
-        tag: "Soru–Cevap",
-      },
-    });
-    await prisma.informationCard.create({
-      data: {
-        id: `mcq_${row.subtopicId}`,
-        subtopicId: row.subtopicId,
-        kind: "MCQ",
-        title: row.mcq.title,
-        content: JSON.stringify({
-          options: row.mcq.options,
-          correctIndex: row.mcq.correctIndex,
-        }),
-        tag: "Çoktan seçmeli",
-      },
-    });
-  }
+  await prisma.informationCard.createMany({ data: rows });
 
   const topicCount = await prisma.topic.count();
   const subCount = await prisma.subtopic.count();
   const cardCount = await prisma.informationCard.count();
-  console.log(`Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${cardCount} kart (bilgi + soru-cevap + çoktan seçmeli).`);
+  console.log(
+    `Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${cardCount} kart (alt konu başına ${PER_SUBTOPIC} bilgi + ${PER_SUBTOPIC} soru-cevap + ${PER_SUBTOPIC} çoktan seçmeli).`,
+  );
 }
 
 main()

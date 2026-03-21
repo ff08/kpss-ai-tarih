@@ -2,18 +2,23 @@ import { getDefaultApiBase } from "./config";
 
 const base = () => getDefaultApiBase();
 
-export type Topic = { id: string; title: string; sortOrder: number };
+export type Topic = { id: string; title: string; sortOrder: number; description?: string | null };
 
 export type Subtopic = { id: string; title: string; sortOrder: number };
 
 export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ";
 
+export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
+
 export type StudyCard = {
   id: string;
   kind: CardKind;
+  difficulty: QuestionDifficulty | null;
   title: string;
   content: string;
   tag: string | null;
+  /** Soru–cevap modunda soru yüzü ipucu (API’den) */
+  hint?: string | null;
 };
 
 export type McqPayload = {

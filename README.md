@@ -32,6 +32,30 @@ KPSS Tarih için **bilgi kartları** (Faz 1): Expo (React Native) mobil uygulama
 
 **Railway:** Projeye PostgreSQL ekleyin, `DATABASE_URL` ortam değişkenini Railway’ın verdiği bağlantı ile değiştirin. Deploy öncesi veya release aşamasında `npx prisma migrate deploy` çalıştırın; seed’i yalnızca ilk kurulumda veya güvenli bir admin akışıyla çalıştırın.
 
+Şablon için [`api/.env.example`](api/.env.example) dosyasına bakın; gerçek sırları **asla** repoya eklemeyin.
+
+## GitHub’a yükleme
+
+1. [GitHub](https://github.com/new) üzerinde **yeni bir boş repository** oluşturun (README / .gitignore eklemeyin; çakışma olmasın).
+2. Bilgisayarınızda proje klasöründe:
+
+   ```bash
+   cd kpss-ai-tarih
+   git remote add origin https://github.com/KULLANICI_ADINIZ/REPO_ADI.git
+   git push -u origin main
+   ```
+
+   İlk kez `git` kullanıyorsanız GitHub kimlik doğrulaması için [HTTPS + Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) veya [GitHub CLI](https://cli.github.com/) tercih edebilirsiniz.
+
+## Railway build (özet)
+
+- **Root Directory / Service kökü:** `api` olarak ayarlayın.
+- **Ortam:** PostgreSQL eklentisinden gelen `DATABASE_URL`’i API servisine bağlayın (aynı projede genelde referans verilir).
+- **Build komutu örneği:** `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`
+- **Start komutu:** `npm run start` (`node dist/index.js`)
+
+İlk veriyi yükleme için bir kez `npm run db:seed` çalıştırmanız gerekebilir (Railway shell veya yerel makineden `DATABASE_URL` ile).
+
 ## API’yi çalıştırma
 
 ```bash

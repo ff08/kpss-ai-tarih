@@ -55,14 +55,14 @@ git remote add origin https://github.com/KULLANICI/REPO.git
 git push -u origin main
 ```
 
-## Railway build (özet)
+## Railway deploy
 
-- **Root Directory / Service kökü:** `api` olarak ayarlayın.
-- **Ortam:** PostgreSQL eklentisinden gelen `DATABASE_URL`’i API servisine bağlayın (aynı projede genelde referans verilir).
-- **Build komutu örneği:** `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`
-- **Start komutu:** `npm run start` (`node dist/index.js`)
+**“Error creating build plan with Railpack”** monorepo kökünde Railpack’ın hangi uygulamayı üreteceğini seçememesinden kaynaklanır. Bu repoda kökte **[`Dockerfile`](Dockerfile)** ve **[`railway.json`](railway.json)** vardır; build **Dockerfile** ile yapılır (Railpack planı gerekmez).
 
-İlk veriyi yükleme için bir kez `npm run db:seed` çalıştırmanız gerekebilir (Railway shell veya yerel makineden `DATABASE_URL` ile).
+- **Root Directory:** Repo kökü (`.` veya boş). **`api` alt klasörü seçmeyin** — Dockerfile yolları köke göredir.
+- **Builder:** `DOCKERFILE` ([`railway.json`](railway.json) içinde tanımlı).
+- **Ortam:** PostgreSQL eklentisinden `DATABASE_URL`’i API servisine bağlayın (`PORT` Railway tarafından atanır).
+- **İlk veri:** Konteyner ayağa kalkarken `prisma migrate deploy` çalışır; **seed** için bir kez Railway shell veya yerelden `npm run db:seed` (aynı `DATABASE_URL` ile) çalıştırın.
 
 ## API’yi çalıştırma
 

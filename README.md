@@ -57,12 +57,26 @@ git push -u origin main
 
 ## Railway deploy
 
-**“Error creating build plan with Railpack”** monorepo kökünde Railpack’ın hangi uygulamayı üreteceğini seçememesinden kaynaklanır. Bu repoda kökte **[`Dockerfile`](Dockerfile)** ve **[`railway.json`](railway.json)** vardır; build **Dockerfile** ile yapılır (Railpack planı gerekmez).
+**“Railpack could not determine how to build” / `start.sh not found`:** Serviste **Builder hâlâ Railpack** seçiliyorsa veya **Root Directory** ile **Dockerfile konumu** uyuşmuyorsa oluşur. Aşağıdaki **iki kurulumdan birini** seçin; ikisinde de asıl build **Dockerfile** ile yapılır.
 
-- **Root Directory:** Repo kökü (`.` veya boş). **`api` alt klasörü seçmeyin** — Dockerfile yolları köke göredir.
-- **Builder:** `DOCKERFILE` ([`railway.json`](railway.json) içinde tanımlı).
-- **Ortam:** PostgreSQL eklentisinden `DATABASE_URL`’i API servisine bağlayın (`PORT` Railway tarafından atanır).
-- **İlk veri:** Konteyner ayağa kalkarken `prisma migrate deploy` çalışır; **seed** için bir kez Railway shell veya yerelden `npm run db:seed` (aynı `DATABASE_URL` ile) çalıştırın.
+### A) Root Directory = `api` (önerilen — monorepo’da sık kullanılan)
+
+1. Railway → servis → **Settings → Build → Root Directory:** `api`
+2. **Builder:** **Dockerfile** (veya “Docker”; Railpack değil).
+3. **Dockerfile path:** `Dockerfile` (varsayılan — [`api/Dockerfile`](api/Dockerfile) kullanılır).
+4. [`api/railway.json`](api/railway.json) Railpack yerine Dockerfile seçimini pekiştirir.
+
+### B) Root Directory = repo kökü (`.` veya boş)
+
+1. **Root Directory** boş veya `.`
+2. **Builder:** **Dockerfile**
+3. Kökteki [`Dockerfile`](Dockerfile) `api/` altındaki dosyaları kopyalar; [`railway.json`](railway.json) / [`railway.toml`](railway.toml) bu senaryo içindir.
+
+**Ortam:** PostgreSQL eklentisinden `DATABASE_URL`’i API servisine bağlayın (`PORT` Railway tarafından atanır).
+
+**İlk veri:** Konteyner başlarken `prisma migrate deploy` çalışır; **seed** için bir kez Railway shell veya yerelden `npm run db:seed` (aynı `DATABASE_URL` ile) çalıştırın.
+
+**Not:** Dashboard’da **Build → Builder** açıkça **Dockerfile** değilse Railpack çalışır ve `start.sh` arar; mutlaka Dockerfile’a geçirin veya yukarıdaki Root + `api/Dockerfile` eşleşmesini kullanın.
 
 ## API’yi çalıştırma
 

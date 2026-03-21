@@ -87,7 +87,7 @@ export default function TopicsScreen() {
       <FlatList
         style={styles.listFlex}
         data={topics}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (

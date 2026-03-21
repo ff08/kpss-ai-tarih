@@ -3,7 +3,7 @@ import { getDefaultApiBase } from "./config";
 const base = () => getDefaultApiBase();
 
 export type Topic = {
-  id: string;
+  id: number;
   title: string;
   sortOrder: number;
   description?: string | null;
@@ -13,14 +13,15 @@ export type Topic = {
   mcqCount: number;
 };
 
-export type Subtopic = { id: string; title: string; sortOrder: number };
+export type Subtopic = { id: number; title: string; sortOrder: number };
 
 export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ";
 
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
 
 export type StudyCard = {
-  id: string;
+  /** API’den sayı; yerel placeholder kartlarda string olabilir */
+  id: number | string;
   kind: CardKind;
   difficulty: QuestionDifficulty | null;
   title: string;
@@ -57,40 +58,40 @@ export async function fetchTopics(): Promise<Topic[]> {
   return j.topics;
 }
 
-export async function fetchSubtopics(topicId: string): Promise<{
-  topicId: string;
+export async function fetchSubtopics(topicId: string | number): Promise<{
+  topicId: number;
   title: string;
   subtopics: Subtopic[];
 }> {
-  const r = await fetch(`${base()}/topics/${encodeURIComponent(topicId)}/subtopics`);
+  const r = await fetch(`${base()}/topics/${encodeURIComponent(String(topicId))}/subtopics`);
   if (!r.ok) throw new Error(`Alt konular alınamadı (${r.status})`);
   return r.json();
 }
 
-export async function fetchSubtopicMeta(subtopicId: string): Promise<{
-  subtopicId: string;
+export async function fetchSubtopicMeta(subtopicId: string | number): Promise<{
+  subtopicId: number;
   title: string;
-  topicId: string;
+  topicId: number;
   topicTitle: string;
 }> {
-  const r = await fetch(`${base()}/subtopics/${encodeURIComponent(subtopicId)}`);
+  const r = await fetch(`${base()}/subtopics/${encodeURIComponent(String(subtopicId))}`);
   if (!r.ok) throw new Error(`Alt konu bilgisi alınamadı (${r.status})`);
   return r.json();
 }
 
 export async function fetchCards(
-  subtopicId: string,
+  subtopicId: string | number,
   kind: CardKind = "INFORMATION",
 ): Promise<{
-  subtopicId: string;
+  subtopicId: number;
   title: string;
-  topicId: string;
+  topicId: number;
   topicTitle: string;
   kind: CardKind;
   cards: StudyCard[];
 }> {
   const r = await fetch(
-    `${base()}/subtopics/${encodeURIComponent(subtopicId)}/cards?kind=${encodeURIComponent(kind)}`,
+    `${base()}/subtopics/${encodeURIComponent(String(subtopicId))}/cards?kind=${encodeURIComponent(kind)}`,
   );
   if (!r.ok) throw new Error(`Kartlar alınamadı (${r.status})`);
   return r.json();
@@ -98,7 +99,7 @@ export async function fetchCards(
 
 /** @deprecated Bilgi kartları için `fetchCards(id, "INFORMATION")` kullanın */
 export type InformationCard = {
-  id: string;
+  id: number;
   title: string;
   content: string;
   tag: string | null;

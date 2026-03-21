@@ -76,7 +76,7 @@ export default function SubtopicsScreen() {
       <FlatList
         style={styles.listFlex}
         data={subtopics}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />
         }

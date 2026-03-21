@@ -8,18 +8,15 @@ datasource db {
 }
 
 model Topic {
-  id          String     @id
-  title       String
+  id                    Int                    @id @default(autoincrement())
+  title                 String
   /// Ana sayfada konu başlığının altındaki kısa açıklama
-  description String?
-  sortOrder   Int        @default(0)
-  subtopics   Subtopic[]
-}
-
-enum CardKind {
-  INFORMATION
-  OPEN_QA
-  MCQ
+  description           String?
+  sortOrder             Int                    @default(0)
+  subtopics             Subtopic[]
+  informationContents   InformationContent[]
+  openQaContents        OpenQaContent[]
+  mcqContents           McqContent[]
 }
 
 enum QuestionDifficulty {
@@ -29,29 +26,68 @@ enum QuestionDifficulty {
 }
 
 model Subtopic {
-  id        String             @id
-  topicId   String
-  topic     Topic              @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  title     String
-  sortOrder Int                @default(0)
-  cards     InformationCard[]
+  id                  Int                    @id @default(autoincrement())
+  topicId             Int
+  topic               Topic                  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  title               String
+  sortOrder           Int                    @default(0)
+  informationContents InformationContent[]
+  openQaContents      OpenQaContent[]
+  mcqContents         McqContent[]
 
   @@index([topicId])
 }
 
-model InformationCard {
-  id         String   @id
-  subtopicId String
+/// Bilgi kartları (INFORMATION)
+model InformationContent {
+  id         Int      @id @default(autoincrement())
+  topicId    Int
+  topic      Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  subtopicId Int
   subtopic   Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
-  kind        CardKind           @default(INFORMATION)
-  difficulty  QuestionDifficulty?
-  title       String
-  content     String               @db.Text
-  tag         String?
-  /// Soru–cevap kartlarında soru yüzündeki kısa ipucu metni
-  hint        String?
-  createdAt   DateTime             @default(now())
+  title      String
+  content    String   @db.Text
+  tag        String?
+  createdAt  DateTime @default(now())
 
   @@index([subtopicId])
-  @@index([subtopicId, kind])
+  @@index([topicId])
+  @@index([subtopicId, topicId])
+}
+
+/// Soru–cevap kartları (OPEN_QA)
+model OpenQaContent {
+  id         Int      @id @default(autoincrement())
+  topicId    Int
+  topic      Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  subtopicId Int
+  subtopic   Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  title      String
+  content    String   @db.Text
+  tag        String?
+  /// Soru yüzündeki kısa ipucu metni
+  hint       String?
+  createdAt  DateTime @default(now())
+
+  @@index([subtopicId])
+  @@index([topicId])
+  @@index([subtopicId, topicId])
+}
+
+/// Çoktan seçmeli kartlar (MCQ); `content` JSON şeklinde seçenekler
+model McqContent {
+  id         Int                @id @default(autoincrement())
+  topicId    Int
+  topic      Topic              @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  subtopicId Int
+  subtopic   Subtopic           @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  difficulty QuestionDifficulty
+  title      String
+  content    String             @db.Text
+  tag        String?
+  createdAt  DateTime           @default(now())
+
+  @@index([subtopicId])
+  @@index([topicId])
+  @@index([subtopicId, topicId])
 }

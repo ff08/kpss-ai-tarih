@@ -524,7 +524,7 @@ export default function CardDeckScreen() {
           <FlatList
             ref={listRef}
             data={deckListData}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             extraData={{ mode, index, mcqTimeLeft, deckListData }}
             pagingEnabled
             showsVerticalScrollIndicator={false}

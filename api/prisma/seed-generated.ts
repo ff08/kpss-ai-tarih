@@ -4,10 +4,6 @@
 
 export const PER_SUBTOPIC = 10;
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
 function clip(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max - 1)}…`;
@@ -113,19 +109,12 @@ function mcqPayload(subtopicTitle: string, topicTitle: string, n: number): {
   return { title, options, correctIndex, difficulty };
 }
 
-export type FlatSubtopic = { id: string; title: string; topicTitle: string };
-
-export function flattenSubtopics(
-  topics: { id: string; title: string; subtopics: { id: string; title: string }[] }[],
-): FlatSubtopic[] {
-  return topics.flatMap((t) => t.subtopics.map((s) => ({ id: s.id, title: s.title, topicTitle: t.title })));
-}
+export type FlatSubtopic = { id: number; title: string; topicTitle: string; topicId: number };
 
 export function generatedInformationRows(s: FlatSubtopic, n: number) {
   return {
-    id: `inf_${s.id}_${pad(n)}`,
+    topicId: s.topicId,
     subtopicId: s.id,
-    kind: "INFORMATION" as const,
     title: `${n}. özet — ${clip(s.title, 75)}`,
     content: infoContent(s.title, s.topicTitle, n),
     tag: INFO_TAGS[(n - 1) % INFO_TAGS.length],
@@ -136,9 +125,8 @@ export function generatedQaRows(s: FlatSubtopic, n: number) {
   const { title, content } = qaPair(s.title, s.topicTitle, n);
   const hint = QA_FACE_HINTS[(n - 1) % QA_FACE_HINTS.length];
   return {
-    id: `qa_${s.id}_${pad(n)}`,
+    topicId: s.topicId,
     subtopicId: s.id,
-    kind: "OPEN_QA" as const,
     title,
     content,
     tag: "Soru–Cevap",
@@ -149,9 +137,8 @@ export function generatedQaRows(s: FlatSubtopic, n: number) {
 export function generatedMcqRows(s: FlatSubtopic, n: number) {
   const m = mcqPayload(s.title, s.topicTitle, n);
   return {
-    id: `mcq_${s.id}_${pad(n)}`,
+    topicId: s.topicId,
     subtopicId: s.id,
-    kind: "MCQ" as const,
     difficulty: m.difficulty,
     title: m.title,
     content: JSON.stringify({ options: m.options, correctIndex: m.correctIndex }),

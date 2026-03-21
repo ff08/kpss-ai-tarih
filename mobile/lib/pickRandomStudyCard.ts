@@ -5,7 +5,7 @@ export type RandomPickResult = {
   card: StudyCard;
   topicTitle: string;
   subtopicTitle: string;
-  subtopicId: string;
+  subtopicId: number;
 };
 
 const KINDS: CardKind[] = ["INFORMATION", "OPEN_QA", "MCQ"];

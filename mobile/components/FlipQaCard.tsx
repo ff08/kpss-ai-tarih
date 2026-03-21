@@ -8,7 +8,7 @@ type Props = {
   question: string;
   answer: string;
   /** Kart değişince ön yüze dön */
-  resetKey: string;
+  resetKey: string | number;
   /** Soru yüzü altı; veritabanından gelen kısa ipucu (yoksa varsayılan metin) */
   hint?: string | null;
 };

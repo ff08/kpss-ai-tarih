@@ -57,26 +57,30 @@ git push -u origin main
 
 ## Railway deploy
 
-**“Railpack could not determine how to build” / `start.sh not found`:** Serviste **Builder hâlâ Railpack** seçiliyorsa veya **Root Directory** ile **Dockerfile konumu** uyuşmuyorsa oluşur. Aşağıdaki **iki kurulumdan birini** seçin; ikisinde de asıl build **Dockerfile** ile yapılır.
+**“Railpack … / `start.sh not found`:** Build hâlâ **Railpack** ile deneniyorsa, Railway **Dockerfile**’ı bulamıyor veya **Builder** ayarı Railpack’te kalmış demektir. Bu repoda **tek Dockerfile** [`api/Dockerfile`](api/Dockerfile); kökte `Dockerfile` yok (monorepo karışıklığını azaltır).
 
-### A) Root Directory = `api` (önerilen — monorepo’da sık kullanılan)
+### A) Root Directory = `api` (en basit)
 
-1. Railway → servis → **Settings → Build → Root Directory:** `api`
-2. **Builder:** **Dockerfile** (veya “Docker”; Railpack değil).
-3. **Dockerfile path:** `Dockerfile` (varsayılan — [`api/Dockerfile`](api/Dockerfile) kullanılır).
-4. [`api/railway.json`](api/railway.json) Railpack yerine Dockerfile seçimini pekiştirir.
+1. **Settings → Build → Root Directory:** `api` (veya `/api`)
+2. **Builder:** **Dockerfile** (Railpack / Nixpacks değil).
+3. **Dockerfile path:** `Dockerfile` (servis kökü `api` olduğu için [`api/Dockerfile`](api/Dockerfile) kullanılır).
+4. [`api/railway.json`](api/railway.json) `builder: DOCKERFILE` içerir.
 
-### B) Root Directory = repo kökü (`.` veya boş)
+### B) Root Directory = repo kökü (boş / `.`)
 
-1. **Root Directory** boş veya `.`
-2. **Builder:** **Dockerfile**
-3. Kökteki [`Dockerfile`](Dockerfile) `api/` altındaki dosyaları kopyalar; [`railway.json`](railway.json) / [`railway.toml`](railway.toml) bu senaryo içindir.
+1. **Root Directory** boş bırakın.
+2. **Builder:** **Dockerfile**.
+3. Kök [`railway.json`](railway.json) içinde **`dockerfilePath`: `api/Dockerfile`** tanımlı; build bu dosyayı kullanır.
+
+### Hâlâ Railpack görüyorsanız
+
+1. Servis **Variables** içine ekleyin: **`RAILWAY_DOCKERFILE_PATH`** = `api/Dockerfile` (kök dizinden deploy ediyorsanız) veya sadece `Dockerfile` (Root Directory = `api` iken).
+2. **Settings → Build** ekranında **Builder** açılır listesinden **Dockerfile** seçili olduğundan emin olun (bazı projelerde varsayılan Railpack kalabiliyor).
+3. Değişiklikten sonra **Redeploy** edin.
 
 **Ortam:** PostgreSQL eklentisinden `DATABASE_URL`’i API servisine bağlayın (`PORT` Railway tarafından atanır).
 
 **İlk veri:** Konteyner başlarken `prisma migrate deploy` çalışır; **seed** için bir kez Railway shell veya yerelden `npm run db:seed` (aynı `DATABASE_URL` ile) çalıştırın.
-
-**Not:** Dashboard’da **Build → Builder** açıkça **Dockerfile** değilse Railpack çalışır ve `start.sh` arar; mutlaka Dockerfile’a geçirin veya yukarıdaki Root + `api/Dockerfile` eşleşmesini kullanın.
 
 ## API’yi çalıştırma
 

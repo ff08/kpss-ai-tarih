@@ -4,6 +4,8 @@ import {
   Animated,
   FlatList,
   LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -31,6 +33,33 @@ const MODE_LABELS: Record<CardKind, string> = {
 };
 
 const MCQ_SECONDS_PER_QUESTION = 60;
+/** Bilgi kartları bitti → soru–cevap modu (görsel geçiş süresi) */
+const CHAIN_INFO_TO_QA_MS = 1500;
+
+/** Bilgi → Soru–cevap → Çoktan seçmeli zincirinde son sayfa geçişi */
+const CHAIN_NEXT_ID = "__chain_next__";
+/** Zincir tamamlandığında mod seçimine dönüş */
+const CHAIN_DONE_ID = "__chain_done__";
+
+const CHAIN_NEXT_PLACEHOLDER: StudyCard = {
+  id: CHAIN_NEXT_ID,
+  kind: "INFORMATION",
+  difficulty: null,
+  title: "",
+  content: "",
+  tag: null,
+  hint: null,
+};
+
+const CHAIN_DONE_PLACEHOLDER: StudyCard = {
+  id: CHAIN_DONE_ID,
+  kind: "MCQ",
+  difficulty: null,
+  title: "",
+  content: "{}",
+  tag: null,
+  hint: null,
+};
 
 function formatMcqTime(seconds: number): string {
   const s = Math.max(0, seconds);
@@ -47,6 +76,8 @@ export default function CardDeckScreen() {
   const [topicTitle, setTopicTitle] = useState("");
   const [subTitle, setSubTitle] = useState("");
   const [mode, setMode] = useState<CardKind | null>(null);
+  /** Yalnızca “Bilgi kartları” ile başlatıldıysa: bitince sıradaki moda otomatik geç */
+  const [flowChain, setFlowChain] = useState(false);
   const [cards, setCards] = useState<StudyCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -57,6 +88,10 @@ export default function CardDeckScreen() {
   const [mcqTimeLeft, setMcqTimeLeft] = useState(MCQ_SECONDS_PER_QUESTION);
   const [mcqPaused, setMcqPaused] = useState(false);
   const deckProgressAnim = useRef(new Animated.Value(0)).current;
+  const [showInfoToQaTransition, setShowInfoToQaTransition] = useState(false);
+  const infoToQaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deckLenRef = useRef(0);
+  const chainAdvanceRef = useRef({ qaToMcq: false, mcqDone: false });
 
   useEffect(() => {
     if (!subtopicId) return;
@@ -81,10 +116,17 @@ export default function CardDeckScreen() {
     };
   }, [subtopicId]);
 
+  useEffect(() => {
+    setFlowChain(false);
+    setMode(null);
+    chainAdvanceRef.current = { qaToMcq: false, mcqDone: false };
+  }, [subtopicId]);
+
   const load = useCallback(async () => {
     if (!subtopicId || !mode) return;
     setError(null);
     setLoading(true);
+    setCards([]);
     try {
       const data = await fetchCards(subtopicId, mode);
       setTopicTitle(data.topicTitle);
@@ -101,6 +143,87 @@ export default function CardDeckScreen() {
   useEffect(() => {
     if (mode) void load();
   }, [load, mode]);
+
+  /** Zincirde bu modda kart yoksa sıradaki moda atla (veya bitti) */
+  useEffect(() => {
+    if (!flowChain || loading || !mode) return;
+    if (cards.length > 0) return;
+    if (mode === "INFORMATION") {
+      setMode("OPEN_QA");
+      return;
+    }
+    if (mode === "OPEN_QA") {
+      setMode("MCQ");
+      return;
+    }
+    if (mode === "MCQ") {
+      setFlowChain(false);
+      setMode(null);
+    }
+  }, [flowChain, loading, cards.length, mode]);
+
+  /** Bilgi → soru–cevap: 1500 ms tam ekran spinner; timer yalnızca bir kez (setState ile yeniden tetiklenmez) */
+  useEffect(() => {
+    if (!flowChain || mode !== "INFORMATION" || cards.length === 0) {
+      if (infoToQaTimerRef.current) {
+        clearTimeout(infoToQaTimerRef.current);
+        infoToQaTimerRef.current = null;
+      }
+      setShowInfoToQaTransition(false);
+      return;
+    }
+    if (index !== cards.length) {
+      if (infoToQaTimerRef.current) {
+        clearTimeout(infoToQaTimerRef.current);
+        infoToQaTimerRef.current = null;
+      }
+      setShowInfoToQaTransition(false);
+      return;
+    }
+
+    if (infoToQaTimerRef.current) {
+      return;
+    }
+
+    setShowInfoToQaTransition(true);
+    infoToQaTimerRef.current = setTimeout(() => {
+      infoToQaTimerRef.current = null;
+      setShowInfoToQaTransition(false);
+      setMode("OPEN_QA");
+    }, CHAIN_INFO_TO_QA_MS);
+  }, [flowChain, mode, index, cards.length]);
+
+  useEffect(() => {
+    return () => {
+      if (infoToQaTimerRef.current) {
+        clearTimeout(infoToQaTimerRef.current);
+        infoToQaTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    chainAdvanceRef.current = { qaToMcq: false, mcqDone: false };
+  }, [mode]);
+
+  /** Soru–cevap → çoktan seçmeli */
+  useEffect(() => {
+    if (!flowChain || mode !== "OPEN_QA" || cards.length === 0) return;
+    if (index !== cards.length) return;
+    if (chainAdvanceRef.current.qaToMcq) return;
+    chainAdvanceRef.current.qaToMcq = true;
+    setMode("MCQ");
+  }, [flowChain, mode, index, cards.length]);
+
+  /** Çoktan seçmeli zincir sonu → mod seçimi */
+  useEffect(() => {
+    if (!flowChain || mode !== "MCQ" || cards.length === 0) return;
+    if (index !== cards.length) return;
+    if (chainAdvanceRef.current.mcqDone) return;
+    chainAdvanceRef.current.mcqDone = true;
+    setFlowChain(false);
+    setMode(null);
+  }, [flowChain, mode, index, cards.length]);
 
   useEffect(() => {
     if (mode !== "MCQ") return;
@@ -119,13 +242,15 @@ export default function CardDeckScreen() {
   useEffect(() => {
     if (mode !== "INFORMATION" && mode !== "OPEN_QA") return;
     if (cards.length === 0) return;
-    const target = (index + 1) / cards.length;
+    const total = flowChain ? cards.length + 1 : cards.length;
+    const pos = Math.min(index + 1, total);
+    const target = pos / total;
     Animated.timing(deckProgressAnim, {
       toValue: target,
       duration: 280,
       useNativeDriver: false,
     }).start();
-  }, [mode, index, cards.length]);
+  }, [mode, index, cards.length, flowChain]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0 && viewableItems[0].index != null) {
@@ -133,7 +258,44 @@ export default function CardDeckScreen() {
     }
   }, []);
 
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 60 }).current;
+  const deckListData = useMemo(() => {
+    if (cards.length === 0) return cards;
+    if (!flowChain) return cards;
+    if (mode === "INFORMATION" || mode === "OPEN_QA") {
+      return [...cards, CHAIN_NEXT_PLACEHOLDER];
+    }
+    if (mode === "MCQ") {
+      return [...cards, CHAIN_DONE_PLACEHOLDER];
+    }
+    return cards;
+  }, [cards, flowChain, mode]);
+
+  deckLenRef.current = deckListData.length;
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const ph = pageHeight;
+      if (ph == null || ph <= 0) return;
+      const y = e.nativeEvent.contentOffset.y;
+      const raw = Math.round(y / ph);
+      const max = Math.max(0, deckLenRef.current - 1);
+      const clamped = Math.max(0, Math.min(Number.isFinite(raw) ? raw : 0, max));
+      setIndex(clamped);
+    },
+    [pageHeight],
+  );
+
+  useEffect(() => {
+    if (!mode) return;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    });
+  }, [mode, subtopicId]);
+
+  const viewConfig = useRef({
+    itemVisiblePercentThreshold: 35,
+    minimumViewTime: 0,
+  }).current;
 
   const onListLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -141,6 +303,11 @@ export default function CardDeckScreen() {
       setPageHeight(h);
     }
   }, [pageHeight]);
+
+  const goToModeMenu = useCallback(() => {
+    setFlowChain(false);
+    setMode(null);
+  }, []);
 
   const screenTitle = mode ? MODE_LABELS[mode] : "Çalışma modu";
 
@@ -174,19 +341,27 @@ export default function CardDeckScreen() {
         <View style={styles.modeList}>
             <Pressable
               style={({ pressed }) => [styles.modeRow, pressed && styles.modeRowPressed]}
-              onPress={() => setMode("INFORMATION")}
+              onPress={() => {
+                setFlowChain(true);
+                setMode("INFORMATION");
+              }}
             >
               <View style={styles.modeRowInner}>
                 <Ionicons name="layers-outline" size={22} color={colors.accent} style={styles.modeIcon} />
                 <View style={styles.modeRowTexts}>
                   <Text style={styles.modeRowTitle}>Bilgi kartları</Text>
-                  <Text style={styles.modeRowSub}>Özet metinleri dikey kaydırarak okuyun</Text>
+                  <Text style={styles.modeRowSub}>
+                    Özetleri okuyun; bitince aynı alt konuda soru–cevap, ardından çoktan seçmeli açılır
+                  </Text>
                 </View>
               </View>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.modeRow, pressed && styles.modeRowPressed]}
-              onPress={() => setMode("OPEN_QA")}
+              onPress={() => {
+                setFlowChain(false);
+                setMode("OPEN_QA");
+              }}
             >
               <View style={styles.modeRowInner}>
                 <Ionicons name="chatbubbles-outline" size={22} color={colors.accent} style={styles.modeIcon} />
@@ -198,7 +373,10 @@ export default function CardDeckScreen() {
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.modeRow, pressed && styles.modeRowPressed]}
-              onPress={() => setMode("MCQ")}
+              onPress={() => {
+                setFlowChain(false);
+                setMode("MCQ");
+              }}
             >
               <View style={styles.modeRowInner}>
                 <Ionicons name="list-circle-outline" size={22} color={colors.accent} style={styles.modeIcon} />
@@ -214,8 +392,9 @@ export default function CardDeckScreen() {
   }
 
   const headerSubtitle = topicTitle && subTitle ? `${topicTitle}\n${subTitle}` : topicTitle || subTitle || "";
+
   const modLeft = (
-    <Pressable onPress={() => setMode(null)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Mod seçimine dön">
+    <Pressable onPress={goToModeMenu} hitSlop={12} accessibilityRole="button" accessibilityLabel="Mod seçimine dön">
       <Text style={{ color: colors.accent, fontSize: 15, fontWeight: "600" }}>‹ Mod seçimi</Text>
     </Pressable>
   );
@@ -240,7 +419,14 @@ export default function CardDeckScreen() {
           <Pressable style={styles.retry} onPress={() => void load()}>
             <Text style={styles.retryText}>Yeniden dene</Text>
           </Pressable>
-          <Pressable style={styles.changeMode} onPress={() => { setMode(null); setError(null); }}>
+          <Pressable
+            style={styles.changeMode}
+            onPress={() => {
+              setFlowChain(false);
+              setMode(null);
+              setError(null);
+            }}
+          >
             <Text style={styles.changeModeText}>Mod seçimine dön</Text>
           </Pressable>
         </View>
@@ -249,6 +435,17 @@ export default function CardDeckScreen() {
   }
 
   if (cards.length === 0) {
+    if (flowChain && mode) {
+      return (
+        <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+          <ScreenHeader title={screenTitle} tagline={APP_TAGLINE} subtitle={headerSubtitle} leftSlot={modLeft} rightSlot={null} />
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={styles.chainWaitText}>Sıradaki mod yükleniyor…</Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
         <ScreenHeader title={screenTitle} tagline={APP_TAGLINE} subtitle={headerSubtitle} leftSlot={modLeft} rightSlot={null} />
@@ -262,7 +459,12 @@ export default function CardDeckScreen() {
 
   const h = pageHeight ?? 400;
 
-  const mcqRemaining = Math.max(0, cards.length - index);
+  const mcqRemaining =
+    index < cards.length ? Math.max(0, cards.length - index) : 0;
+
+  const deckProgressTotal =
+    flowChain && (mode === "INFORMATION" || mode === "OPEN_QA") ? cards.length + 1 : cards.length;
+  const deckProgressPos = Math.min(index + 1, deckProgressTotal);
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
@@ -270,7 +472,7 @@ export default function CardDeckScreen() {
         <View style={[styles.mcqFocusBar, { paddingTop: insets.top + 14 }]}>
           <View style={styles.mcqFocusRow}>
             <Pressable
-              onPress={() => setMode(null)}
+              onPress={goToModeMenu}
               style={styles.mcqModBtn}
               accessibilityRole="button"
               accessibilityLabel="Mod seçimine dön"
@@ -288,7 +490,7 @@ export default function CardDeckScreen() {
         <View style={[styles.mcqFocusBar, { paddingTop: insets.top + 14 }]}>
           <View style={styles.mcqFocusRow}>
             <Pressable
-              onPress={() => setMode(null)}
+              onPress={goToModeMenu}
               style={styles.mcqModBtn}
               accessibilityRole="button"
               accessibilityLabel="Mod seçimine dön"
@@ -310,7 +512,7 @@ export default function CardDeckScreen() {
                 />
               </View>
               <Text style={styles.deckProgressMeta}>
-                {index + 1} / {cards.length}
+                {deckProgressPos} / {deckProgressTotal}
               </Text>
             </View>
             <View style={styles.mcqBarSpacer} />
@@ -321,12 +523,13 @@ export default function CardDeckScreen() {
         {pageHeight != null ? (
           <FlatList
             ref={listRef}
-            data={cards}
+            data={deckListData}
             keyExtractor={(item) => item.id}
-            extraData={{ mode, index, mcqTimeLeft }}
+            extraData={{ mode, index, mcqTimeLeft, deckListData }}
             pagingEnabled
             showsVerticalScrollIndicator={false}
             onViewableItemsChanged={onViewableItemsChanged}
+            onMomentumScrollEnd={onMomentumScrollEnd}
             viewabilityConfig={viewConfig}
             refreshControl={
               <RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />
@@ -338,13 +541,20 @@ export default function CardDeckScreen() {
             })}
             renderItem={({ item, index: itemIndex }) => (
               <View style={[styles.page, { height: h }]}>
-                {mode === "INFORMATION" ? (
+                {item.id === CHAIN_NEXT_ID ? (
+                  <View style={styles.chainPlaceholder}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={styles.chainPlaceholderText}>Sıradaki moda geçiliyor…</Text>
+                  </View>
+                ) : null}
+                {item.id === CHAIN_DONE_ID ? (
+                  <View style={styles.chainPlaceholder}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={styles.chainPlaceholderText}>Tamamlandı</Text>
+                  </View>
+                ) : null}
+                {item.id !== CHAIN_NEXT_ID && item.id !== CHAIN_DONE_ID && mode === "INFORMATION" ? (
                   <View style={styles.card}>
-                    {item.tag ? (
-                      <View style={styles.tag}>
-                        <Text style={styles.tagText}>{item.tag}</Text>
-                      </View>
-                    ) : null}
                     <ScrollView
                       style={styles.infoScroll}
                       contentContainerStyle={styles.infoScrollContent}
@@ -355,10 +565,10 @@ export default function CardDeckScreen() {
                     </ScrollView>
                   </View>
                 ) : null}
-                {mode === "OPEN_QA" ? (
+                {item.id !== CHAIN_NEXT_ID && item.id !== CHAIN_DONE_ID && mode === "OPEN_QA" ? (
                   <FlipQaCard question={item.title} answer={item.content} resetKey={item.id} hint={item.hint} />
                 ) : null}
-                {mode === "MCQ" ? (
+                {item.id !== CHAIN_NEXT_ID && item.id !== CHAIN_DONE_ID && mode === "MCQ" ? (
                   <McqSlide
                     item={item}
                     isActive={index === itemIndex}
@@ -372,13 +582,23 @@ export default function CardDeckScreen() {
         ) : (
           <View style={styles.listPlaceholder} />
         )}
+        {showInfoToQaTransition ? (
+          <View style={styles.chainTransitionOverlay} pointerEvents="auto">
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={styles.chainTransitionText}>Soru–cevap moduna geçiliyor…</Text>
+          </View>
+        ) : null}
       </View>
       <Text style={styles.swipeHint}>
         {mode === "OPEN_QA"
           ? "Dikey kaydırın; cevap için karta dokunun"
           : mode === "MCQ"
-            ? "Her soru için 1 dk; dikey kaydırarak ilerleyin"
-            : "Dikey kaydırarak ileri ve geri gidebilirsiniz"}
+            ? flowChain
+              ? "Son sorudan sonra tamamlanınca mod seçimine dönersiniz"
+              : "Her soru için 1 dk; dikey kaydırarak ilerleyin"
+            : flowChain
+              ? "Bilgi kartları bittiğinde soru–cevap; o da bitince çoktan seçmeli açılır"
+              : "Dikey kaydırarak ileri ve geri gidebilirsiniz"}
       </Text>
     </SafeAreaView>
   );
@@ -460,7 +680,23 @@ function createSubtopicStyles(colors: ColorPalette) {
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
-  listWrap: { flex: 1 },
+  listWrap: { flex: 1, position: "relative" },
+  chainTransitionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.bg,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+    paddingHorizontal: 24,
+  },
+  chainTransitionText: {
+    marginTop: 16,
+    color: colors.muted,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 22,
+  },
   listPlaceholder: { flex: 1 },
   page: {
     paddingHorizontal: 16,
@@ -487,14 +723,6 @@ function createSubtopicStyles(colors: ColorPalette) {
     alignSelf: "stretch",
     width: "100%",
   },
-  tag: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.tagBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  tagText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
   cardTitle: {
     color: colors.text,
     fontSize: 20,
@@ -515,6 +743,14 @@ function createSubtopicStyles(colors: ColorPalette) {
     paddingHorizontal: 24,
   },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg },
+  chainWaitText: { color: colors.muted, marginTop: 14, fontSize: 14, textAlign: "center" },
+  chainPlaceholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  chainPlaceholderText: { color: colors.muted, marginTop: 14, fontSize: 15, textAlign: "center", fontWeight: "600" },
   error: { color: colors.muted, padding: 24, textAlign: "center" },
   emptyWrap: { flex: 1, justifyContent: "center", padding: 28 },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: "600", marginBottom: 10 },

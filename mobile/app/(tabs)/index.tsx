@@ -98,11 +98,17 @@ export default function TopicsScreen() {
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               {item.description ? <Text style={styles.rowDesc}>{item.description}</Text> : null}
+              <View
+                style={[
+                  styles.statsDivider,
+                  item.description ? styles.statsDividerAfterDesc : styles.statsDividerNoDesc,
+                ]}
+              />
               <View style={styles.statsRow}>
                 <TopicStatChip
                   icon="layers-outline"
                   count={item.subtopicCount ?? 0}
-                  caption="Alt Başlık"
+                  caption="Ünite"
                   bg={colors.topicStatSubBg}
                   fg={colors.topicStatSubFg}
                 />
@@ -164,7 +170,7 @@ const topicStatStyles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     marginRight: 6,
-    marginTop: 6,
+    marginTop: 0,
     gap: 5,
   },
   chipText: { flexShrink: 1, fontSize: 11, fontWeight: "600", marginLeft: 2 },
@@ -195,8 +201,16 @@ function createStyles(colors: ColorPalette) {
       fontSize: 12,
       lineHeight: 17,
       marginTop: 5,
+      marginBottom: 0,
     },
-    statsRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 2, marginHorizontal: -2 },
+    statsDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      alignSelf: "stretch",
+    },
+    statsDividerAfterDesc: { marginTop: 12, marginBottom: 10 },
+    statsDividerNoDesc: { marginTop: 10, marginBottom: 10 },
+    statsRow: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2 },
     chevron: { color: colors.muted, fontSize: 22, fontWeight: "300", marginTop: 2 },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: colors.bg },
     muted: { color: colors.muted, marginTop: 12, textAlign: "center", lineHeight: 20 },

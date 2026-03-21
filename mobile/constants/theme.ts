@@ -20,6 +20,10 @@ export type ColorPalette = {
   mcqCorrectBorder: string;
   mcqWrongBg: string;
   mcqWrongBorder: string;
+  /** Çoktan seçmeli kart gövdesi — zorluk (çok açık tonlar) */
+  mcqSlideBgEasy: string;
+  mcqSlideBgMedium: string;
+  mcqSlideBgHard: string;
   /** Anasayfa konu satırı istatistik chip’leri */
   topicStatSubBg: string;
   topicStatSubFg: string;
@@ -51,6 +55,9 @@ export const darkPalette: ColorPalette = {
   mcqCorrectBorder: "#4caf50",
   mcqWrongBg: "#2e1a1a",
   mcqWrongBorder: "#e57373",
+  mcqSlideBgEasy: "#1a2a24",
+  mcqSlideBgMedium: "#2a2318",
+  mcqSlideBgHard: "#2a1c1c",
   topicStatSubBg: "#3d3520",
   topicStatSubFg: "#f0e6b8",
   topicStatInfoBg: "#1e2a3d",
@@ -82,6 +89,9 @@ export const lightPalette: ColorPalette = {
   mcqCorrectBorder: "#2e7d32",
   mcqWrongBg: "#ffebee",
   mcqWrongBorder: "#c62828",
+  mcqSlideBgEasy: "#ecf8f0",
+  mcqSlideBgMedium: "#fff5e8",
+  mcqSlideBgHard: "#fff0f0",
   topicStatSubBg: "#fff8e6",
   topicStatSubFg: "#7a5f00",
   topicStatInfoBg: "#e8f0ff",

@@ -154,11 +154,6 @@ export default function RandomScreen() {
             <View style={styles.cardWrap}>
               {pick.kind === "INFORMATION" ? (
                 <View style={styles.card}>
-                  {pick.card.tag ? (
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{pick.card.tag}</Text>
-                    </View>
-                  ) : null}
                   <ScrollView
                     style={styles.infoScroll}
                     contentContainerStyle={styles.infoScrollContent}
@@ -242,15 +237,6 @@ function createStyles(colors: ColorPalette) {
       borderColor: colors.border,
       maxHeight: "100%",
     },
-    tag: {
-      alignSelf: "flex-start",
-      backgroundColor: colors.tagBg,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-      marginBottom: 10,
-    },
-    tagText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
     infoScroll: { flex: 1 },
     infoScrollContent: {
       flexGrow: 1,

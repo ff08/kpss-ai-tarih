@@ -4,30 +4,18 @@ import { parseMcqPayload, type QuestionDifficulty, type StudyCard } from "../lib
 import type { ColorPalette } from "../constants/theme";
 import { useTheme } from "../contexts/ThemeContext";
 
-function DifficultyBadge({ level }: { level: QuestionDifficulty }) {
-  const { colors } = useTheme();
-  const u = useMemo(() => {
-    const map: Record<QuestionDifficulty, { label: string; bg: string; fg: string }> = {
-      EASY: { label: "Kolay", bg: colors.difficultyEasyBg, fg: colors.difficultyEasy },
-      MEDIUM: { label: "Orta", bg: colors.difficultyMediumBg, fg: colors.difficultyMedium },
-      HARD: { label: "Zor", bg: colors.difficultyHardBg, fg: colors.difficultyHard },
-    };
-    return map[level];
-  }, [colors, level]);
-  return (
-    <View
-      style={{
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 8,
-        borderWidth: 1,
-        backgroundColor: u.bg,
-        borderColor: u.fg,
-      }}
-    >
-      <Text style={{ fontSize: 12, fontWeight: "700", letterSpacing: 0.3, color: u.fg }}>{u.label}</Text>
-    </View>
-  );
+function mcqCardBackground(colors: ColorPalette, difficulty: QuestionDifficulty | null | undefined): string {
+  if (!difficulty) return colors.card;
+  switch (difficulty) {
+    case "EASY":
+      return colors.mcqSlideBgEasy;
+    case "MEDIUM":
+      return colors.mcqSlideBgMedium;
+    case "HARD":
+      return colors.mcqSlideBgHard;
+    default:
+      return colors.card;
+  }
 }
 
 export function McqSlide({
@@ -58,7 +46,7 @@ export function McqSlide({
     payload = parseMcqPayload(item.content);
   } catch {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text style={styles.error}>Çoktan seçmeli verisi okunamadı</Text>
       </View>
     );
@@ -79,16 +67,10 @@ export function McqSlide({
     }
   }
 
+  const cardBg = mcqCardBackground(colors, item.difficulty);
+
   return (
-    <View style={styles.card}>
-      <View style={styles.mcqTagsRow}>
-        {item.tag ? (
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>{item.tag}</Text>
-          </View>
-        ) : null}
-        {item.difficulty ? <DifficultyBadge level={item.difficulty} /> : null}
-      </View>
+    <View style={[styles.card, { backgroundColor: cardBg }]}>
       <Text style={styles.mcqCardTitle}>{item.title}</Text>
       <ScrollView
         style={styles.mcqOptionsScroll}
@@ -133,28 +115,12 @@ function createMcqSlideStyles(colors: ColorPalette) {
   return StyleSheet.create({
     card: {
       flex: 1,
-      backgroundColor: colors.card,
       borderRadius: 16,
       padding: 20,
       borderWidth: 1,
       borderColor: colors.border,
       maxHeight: "100%",
     },
-    mcqTagsRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 12,
-    },
-    tag: {
-      alignSelf: "flex-start",
-      backgroundColor: colors.tagBg,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-    },
-    tagText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
     mcqCardTitle: {
       color: colors.text,
       fontSize: 20,

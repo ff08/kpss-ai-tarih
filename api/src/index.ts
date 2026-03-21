@@ -37,13 +37,38 @@ async function build() {
     return { topicId: topic.id, title: topic.title, subtopics: topic.subtopics };
   });
 
+  app.get("/subtopics/:subtopicId", async (request, reply) => {
+    const { subtopicId } = request.params as { subtopicId: string };
+    const sub = await prisma.subtopic.findUnique({
+      where: { id: subtopicId },
+      include: { topic: { select: { id: true, title: true } } },
+    });
+    if (!sub) {
+      return reply.status(404).send({ error: "Alt konu bulunamadı" });
+    }
+    return {
+      subtopicId: sub.id,
+      title: sub.title,
+      topicId: sub.topic.id,
+      topicTitle: sub.topic.title,
+    };
+  });
+
   app.get("/subtopics/:subtopicId/cards", async (request, reply) => {
     const { subtopicId } = request.params as { subtopicId: string };
+    const q = request.query as { kind?: string };
+    const allowed = ["INFORMATION", "OPEN_QA", "MCQ"] as const;
+    const kind = allowed.includes(q.kind as (typeof allowed)[number]) ? (q.kind as (typeof allowed)[number]) : "INFORMATION";
+
     const sub = await prisma.subtopic.findUnique({
       where: { id: subtopicId },
       include: {
         topic: { select: { id: true, title: true } },
-        cards: { orderBy: { id: "asc" }, select: { id: true, title: true, content: true, tag: true } },
+        cards: {
+          where: { kind },
+          orderBy: { id: "asc" },
+          select: { id: true, kind: true, title: true, content: true, tag: true },
+        },
       },
     });
     if (!sub) {
@@ -54,6 +79,7 @@ async function build() {
       title: sub.title,
       topicId: sub.topic.id,
       topicTitle: sub.topic.title,
+      kind,
       cards: sub.cards,
     };
   });

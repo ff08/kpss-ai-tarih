@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { seedInformationCards } from "./seed-cards-data";
+import { seedQaMcqBySubtopic } from "./seed-qa-mcq-data";
 
 const prisma = new PrismaClient();
 
@@ -235,6 +236,7 @@ async function main() {
       data: {
         id: c.id,
         subtopicId: c.subtopicId,
+        kind: "INFORMATION",
         title: c.title,
         content: c.content,
         tag: c.tag,
@@ -242,10 +244,36 @@ async function main() {
     });
   }
 
+  for (const row of seedQaMcqBySubtopic) {
+    await prisma.informationCard.create({
+      data: {
+        id: `qa_${row.subtopicId}`,
+        subtopicId: row.subtopicId,
+        kind: "OPEN_QA",
+        title: row.qa.title,
+        content: row.qa.content,
+        tag: "Soru–Cevap",
+      },
+    });
+    await prisma.informationCard.create({
+      data: {
+        id: `mcq_${row.subtopicId}`,
+        subtopicId: row.subtopicId,
+        kind: "MCQ",
+        title: row.mcq.title,
+        content: JSON.stringify({
+          options: row.mcq.options,
+          correctIndex: row.mcq.correctIndex,
+        }),
+        tag: "Çoktan seçmeli",
+      },
+    });
+  }
+
   const topicCount = await prisma.topic.count();
   const subCount = await prisma.subtopic.count();
   const cardCount = await prisma.informationCard.count();
-  console.log(`Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${cardCount} bilgi kartı.`);
+  console.log(`Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${cardCount} kart (bilgi + soru-cevap + çoktan seçmeli).`);
 }
 
 main()

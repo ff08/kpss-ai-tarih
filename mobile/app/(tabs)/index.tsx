@@ -101,25 +101,29 @@ export default function TopicsScreen() {
               <View style={styles.statsRow}>
                 <TopicStatChip
                   icon="layers-outline"
-                  label={String(item.subtopicCount ?? 0)}
+                  count={item.subtopicCount ?? 0}
+                  caption="Alt Başlık"
                   bg={colors.topicStatSubBg}
                   fg={colors.topicStatSubFg}
                 />
                 <TopicStatChip
                   icon="document-text-outline"
-                  label={String(item.informationCount ?? 0)}
+                  count={item.informationCount ?? 0}
+                  caption="Bilgi"
                   bg={colors.topicStatInfoBg}
                   fg={colors.topicStatInfoFg}
                 />
                 <TopicStatChip
                   icon="chatbubbles-outline"
-                  label={String(item.openQaCount ?? 0)}
+                  count={item.openQaCount ?? 0}
+                  caption="Soru Cevap"
                   bg={colors.topicStatQaBg}
                   fg={colors.topicStatQaFg}
                 />
                 <TopicStatChip
                   icon="list-circle-outline"
-                  label={String(item.mcqCount ?? 0)}
+                  count={item.mcqCount ?? 0}
+                  caption="Çoktan Seçmeli"
                   bg={colors.topicStatMcqBg}
                   fg={colors.topicStatMcqFg}
                 />
@@ -135,15 +139,18 @@ export default function TopicsScreen() {
 
 function TopicStatChip(props: {
   icon: keyof typeof Ionicons.glyphMap;
-  label: string;
+  count: number;
+  caption: string;
   bg: string;
   fg: string;
 }) {
-  const { icon, label, bg, fg } = props;
+  const { icon, count, caption, bg, fg } = props;
   return (
     <View style={[topicStatStyles.chip, { backgroundColor: bg }]}>
       <Ionicons name={icon} size={13} color={fg} />
-      <Text style={[topicStatStyles.chipText, { color: fg }]}>{label}</Text>
+      <Text style={[topicStatStyles.chipText, { color: fg }]} numberOfLines={1}>
+        {count} {caption}
+      </Text>
     </View>
   );
 }
@@ -152,13 +159,15 @@ const topicStatStyles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
+    maxWidth: "100%",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 8,
     marginRight: 6,
     marginTop: 6,
+    gap: 5,
   },
-  chipText: { fontSize: 11, fontWeight: "600", marginLeft: 4 },
+  chipText: { flexShrink: 1, fontSize: 11, fontWeight: "600", marginLeft: 2 },
 });
 
 function createStyles(colors: ColorPalette) {

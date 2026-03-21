@@ -1,0 +1,198 @@
+{
+  "kpss_tarih_tam_mufredat": [
+    {
+      "id": "islam_oncesi_turk_tarihi",
+      "unite_no": 1,
+      "ana_baslik": "İslamiyet Öncesi Türk Tarihi",
+      "aciklama": "Türk adının anlamından başlayarak, Orta Asya kültürleri, ilk Türk devletleri ve bu devletlerin sosyo-kültürel yapılarının incelendiği başlangıç dönemi.",
+      "alt_basliklar": [
+        {
+          "id": "turk_adi_ve_yurdu",
+          "baslik": "Türk Adının Anlamı ve İlk Ana Yurdu",
+          "aciklama": "Türk kelimesinin kökeni, anlamı ve Türklerin tarih sahnesine çıktığı Orta Asya coğrafyasının özellikleri."
+        },
+        {
+          "id": "orta_asya_kultur_ve_gocler",
+          "baslik": "Orta Asya Kültürleri ve Türk Göçleri",
+          "aciklama": "Anav, Afanesyevo gibi kültür merkezleri ve Türk boylarının dünyaya yayılma nedenleri ile sonuçları."
+        },
+        {
+          "id": "ilk_turk_devletleri",
+          "baslik": "Orta Asya'da Kurulan İlk Türk Devletleri",
+          "aciklama": "İskitler, Asya Hun, Kavimler Göçü, Avrupa Hun, Köktürk ve Uygur devletlerinin siyasi tarihleri."
+        },
+        {
+          "id": "diger_turk_topluluklari",
+          "baslik": "Diğer Türk Devletleri ve Toplulukları",
+          "aciklama": "Hazarlar, Kıpçaklar, Peçenekler ve Oğuzlar gibi tarihte iz bırakmış diğer Türk boyları."
+        },
+        {
+          "id": "islam_oncesi_kultur_uygarlik",
+          "baslik": "Kültür ve Uygarlık (Devlet, Ordu, Sosyal Yapı)",
+          "aciklama": "Kut inancı, kurultay, onlu sistem, töre hukuku ve Gök Tanrı inancını kapsayan toplumsal düzen."
+        }
+      ]
+    },
+    {
+      "id": "turk_islam_tarihi",
+      "unite_no": 2,
+      "ana_baslik": "Türk-İslam Tarihi",
+      "aciklama": "Talas Savaşı ile başlayan Türklerin İslamiyet'e geçiş süreci, Mısır'da ve Orta Asya'da kurulan ilk Müslüman Türk devletleri.",
+      "alt_basliklar": [
+        {
+          "id": "turk_arap_tanismasi",
+          "baslik": "Türkler ve Arapların Tanışması (Talas Savaşı)",
+          "aciklama": "751 Talas Savaşı'nın önemi ve Türklerin kitleler halinde İslamiyet'i kabul etmeye başlaması."
+        },
+        {
+          "id": "misir_turk_devletleri",
+          "baslik": "Mısır'da Kurulan İlk Türk Devletleri",
+          "aciklama": "Tolunoğulları, İhşidiler, Eyyübiler ve Memlükler dönemi siyasi gelişmeleri."
+        },
+        {
+          "id": "ilk_turk_islam_devletleri",
+          "baslik": "İlk Türk İslam Devletleri ve Atabeylikler",
+          "aciklama": "Karahanlılar, Gazneliler ve Büyük Selçuklu Devleti'nin yükselişi ve dağılması."
+        },
+        {
+          "id": "turk_islam_kultur_medeniyet",
+          "baslik": "Türk-İslam Kültür ve Medeniyeti",
+          "aciklama": "Saray ve taşra teşkilatı, toprak sistemi (ikta), hukuk ve bilim insanlarının çalışmaları."
+        }
+      ]
+    },
+    {
+      "id": "turkiye_tarihi",
+      "unite_no": 3,
+      "ana_baslik": "Türkiye Tarihi",
+      "aciklama": "Anadolu'nun kapılarının açılmasıyla kurulan ilk beylikler, Anadolu Selçuklu Devleti ve Ahilik teşkilatı.",
+      "alt_basliklar": [
+        {
+          "id": "birinci_donem_beylikler",
+          "baslik": "I. Anadolu Türk Beylikleri",
+          "aciklama": "Saltuklular, Danişmentliler, Artuklular ve Çaka Beyliği gibi ilk yerleşik siyasi yapılar."
+        },
+        {
+          "id": "anadolu_selcuklu_devleti",
+          "baslik": "Anadolu Selçuklu Devleti Dönemi",
+          "aciklama": "Kuruluş, yükselme ve yıkılış süreçleri ile Anadolu'da sağlanan siyasi birlik çabaları."
+        },
+        {
+          "id": "ikinci_donem_beylikler",
+          "baslik": "II. Beylikler Dönemi",
+          "aciklama": "Karamanoğulları, Karesioğulları ve Osmanlıların beylik olarak ortaya çıktığı dönem."
+        },
+        {
+          "id": "turkiye_tarihi_kultur_uygarlik",
+          "baslik": "Anadolu Selçuklu Kültür ve Uygarlık",
+          "aciklama": "Devlet yönetimi, ordu, Ahilik teşkilatı ve Anadolu'daki mimari eserler."
+        }
+      ]
+    },
+    {
+      "id": "osmanli_kurulus_ve_yukselme",
+      "unite_no": 4,
+      "ana_baslik": "Osmanlı Devleti Kuruluş ve Yükselme",
+      "aciklama": "Kayı boyunun Anadolu'ya gelişinden İstanbul'un fethine ve cihan imparatorluğuna dönüşüm süreci.",
+      "alt_basliklar": [
+        {
+          "id": "osmanli_kurulus_donemi",
+          "baslik": "Kuruluş Dönemi Padişahları ve Siyasi Olaylar",
+          "aciklama": "Osman Bey'den II. Murat'a kadar olan genişleme, Fetret Devri ve teşkilatlanma."
+        },
+        {
+          "id": "osmanli_yukselme_donemi",
+          "baslik": "Yükselme Dönemi (Dünya Gücü Osmanlı)",
+          "aciklama": "Fatih, Yavuz ve Kanuni dönemleri; denizlerde hakimiyet ve stratejik fetihler."
+        }
+      ]
+    },
+    {
+      "id": "osmanli_duraklama_gerileme",
+      "unite_no": 6,
+      "ana_baslik": "Osmanlı Duraklama, Gerileme ve Dağılma",
+      "aciklama": "İmparatorluğun duraklama nedenleri, ilk toprak kayıpları ve 19. yüzyıl modernleşme reformları.",
+      "alt_basliklar": [
+        {
+          "id": "islahat_hareketleri",
+          "baslik": "17, 18 ve 19. Yüzyıl Islahatları",
+          "aciklama": "Lale Devri'nden Tanzimat'a, Meşrutiyet'ten Kanun-i Esasi'ye kadar olan tüm demokratikleşme adımları."
+        },
+        {
+          "id": "dagilma_siyasi_olaylar",
+          "baslik": "Dağılma Dönemi Siyasi Gelişmeleri",
+          "aciklama": "Sırp ve Yunan isyanları, Rus savaşları, 93 Harbi ve Berlin Antlaşması süreci."
+        }
+      ]
+    },
+    {
+      "id": "osmanli_kultur_ve_uygarlik",
+      "unite_no": 9,
+      "ana_baslik": "Osmanlı Devleti Kültür ve Uygarlık",
+      "aciklama": "Osmanlı'nın 600 yıl boyunca dünyayı yönettiği idari, askeri, mali ve hukuki sistemin detayları.",
+      "alt_basliklar": [
+        {
+          "id": "merkez_ve_ulke_yonetimi",
+          "baslik": "Merkez Teşkilatı, Saray ve Padişah",
+          "aciklama": "Divan-ı Hümayun'un işleyişi, saray bölümleri ve şehzade eğitimi."
+        },
+        {
+          "id": "ordu_ve_toprak_sistemi",
+          "baslik": "Osmanlı Ordu Yapısı ve Tımar Sistemi",
+          "aciklama": "Kapıkulu askerleri, Eyalet askerleri ve toprak yönetimi (Dirlik) detayları."
+        },
+        {
+          "id": "maliye_ve_hukuk",
+          "baslik": "Ekonomi, Vergi ve Hukuk Sistemi",
+          "aciklama": "Osmanlı hazinesi, Lonca teşkilatı, Şer'i ve Örfi hukuk kuralları."
+        }
+      ]
+    },
+    {
+      "id": "avrupa_tarihi",
+      "unite_no": 10,
+      "ana_baslik": "Avrupa Tarihi",
+      "aciklama": "Feodaliteden Fransız İhtilali'ne, Avrupa'nın geçirdiği dönüşümün Osmanlı'ya etkileri.",
+      "alt_basliklar": [
+        {
+          "id": "ortacag_ve_yenicag_avrupa",
+          "baslik": "Feodalite, Rönesans ve Reform",
+          "aciklama": "Kilisenin etkisinin azalması, Coğrafi Keşifler ve bilimsel aydınlanma süreci."
+        },
+        {
+          "id": "yakincag_avrupa",
+          "baslik": "Fransız İhtilali ve Sanayi İnkılabı",
+          "aciklama": "Milliyetçilik akımının yayılması ve sömürgecilik yarışının başlaması."
+        }
+      ]
+    },
+    {
+      "id": "milli_mucadele_donemi",
+      "unite_no": 11,
+      "ana_baslik": "XX. Yüzyıl Osmanlı ve Milli Mücadele",
+      "aciklama": "Trablusgarp Savaşı'ndan başlayarak I. Dünya Savaşı, Kurtuluş Savaşı ve Cumhuriyet'in ilanı.",
+      "alt_basliklar": [
+        {
+          "id": "dunya_savasi_ve_mondros",
+          "baslik": "I. Dünya Savaşı ve Mondros Ateşkesi",
+          "aciklama": "Cepheler, gizli antlaşmalar, işgaller ve cemiyetlerin kurulması."
+        },
+        {
+          "id": "hazirlik_ve_kongreler",
+          "baslik": "Milli Mücadele Hazırlık Dönemi",
+          "aciklama": "Genelgeler, kongreler, Misak-ı Milli ve I. TBMM'nin açılış süreci."
+        },
+        {
+          "id": "muharebeler_ve_lozan",
+          "baslik": "Kurtuluş Savaşı Muharebeleri ve Lozan",
+          "aciklama": "Doğu, Güney ve Batı cepheleri; askeri başarının siyasi zaferi Lozan Antlaşması."
+        },
+        {
+          "id": "ataturk_ilke_ve_inkilaplari",
+          "baslik": "Atatürk İlkeleri ve Cumhuriyet İnkılapları",
+          "aciklama": "Siyasi, hukuk, eğitim ve toplumsal alanda yapılan modernleşme hamleleri."
+        }
+      ]
+    }
+  ]
+}

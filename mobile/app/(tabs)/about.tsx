@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Constants from "expo-constants";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../components/ScreenHeader";
@@ -13,7 +13,7 @@ function appVersion(): string {
 }
 
 export default function AboutScreen() {
-  const { colors } = useTheme();
+  const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const version = appVersion();
 
@@ -81,6 +81,15 @@ function createStyles(colors: ColorPalette) {
       letterSpacing: 0.6,
       marginBottom: 10,
     },
+    themeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    themeLabels: { flex: 1, minWidth: 0 },
+    themeTitle: { color: colors.text, fontSize: 16, fontWeight: "600", marginBottom: 4 },
+    themeHint: { color: colors.muted, fontSize: 13, lineHeight: 18 },
     appName: { color: colors.text, fontSize: 20, fontWeight: "700", marginBottom: 4 },
     version: { color: colors.muted, fontSize: 14, fontWeight: "600", marginBottom: 12 },
     body: { color: colors.text, fontSize: 15, lineHeight: 23 },

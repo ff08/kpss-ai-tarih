@@ -46,12 +46,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="exams"
         options={{
-          title: "Arama",
+          title: "Sınavlar",
           tabBarIcon: ({ color }) => (
             <TabIconSlot>
-              <Ionicons name="search-outline" size={ICON} color={color} />
+              <Ionicons name="calendar-outline" size={ICON} color={color} />
             </TabIconSlot>
           ),
         }}

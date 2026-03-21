@@ -6,8 +6,8 @@ import { useRouter } from "expo-router";
 import type { ColorPalette } from "../constants/theme";
 import { useTheme } from "../contexts/ThemeContext";
 
-/** Yalnızca güvenli alan (insets.top); ekstra üst boşluk yok — başlık bandı ekranın üstüne kadar */
-const EXTRA_TOP = 0;
+/** Güvenli alanın üstüne eklenen ek boşluk */
+const EXTRA_TOP = 15;
 /** Header içi alt boşluk */
 const EXTRA_BOTTOM = 20;
 /** Header bandı ile altındaki ana içerik arası */
@@ -24,21 +24,6 @@ type Props = {
   leftSlot?: ReactNode;
   rightSlot?: ReactNode | null;
 };
-
-function ThemeToggleButton() {
-  const { colors, mode, toggleMode } = useTheme();
-  const s = useMemo(() => themed(colors), [colors]);
-  return (
-    <Pressable
-      onPress={toggleMode}
-      accessibilityRole="button"
-      accessibilityLabel={mode === "dark" ? "Aydınlık moda geç" : "Karanlık moda geç"}
-      style={s.themeBtn}
-    >
-      <Text style={s.themeEmoji}>{mode === "dark" ? "☀️" : "🌙"}</Text>
-    </Pressable>
-  );
-}
 
 export function ScreenHeader({
   title,
@@ -70,8 +55,7 @@ export function ScreenHeader({
       </Pressable>
     ) : null;
 
-  const rightContent =
-    rightSlot === null ? null : rightSlot !== undefined ? rightSlot : <ThemeToggleButton />;
+  const rightContent = rightSlot != null ? rightSlot : null;
 
   const paddingTop = insets.top + EXTRA_TOP;
 
@@ -167,7 +151,5 @@ function themed(colors: ColorPalette) {
       paddingTop: 2,
       marginLeft: 4,
     },
-    themeBtn: { paddingHorizontal: 8, paddingVertical: 6 },
-    themeEmoji: { fontSize: 22 },
   });
 }

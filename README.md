@@ -57,26 +57,18 @@ git push -u origin main
 
 ## Railway deploy
 
-**“Railpack … / `start.sh not found`:** Build hâlâ **Railpack** ile deneniyorsa, Railway **Dockerfile**’ı bulamıyor veya **Builder** ayarı Railpack’te kalmış demektir. Bu repoda **tek Dockerfile** [`api/Dockerfile`](api/Dockerfile); kökte `Dockerfile` yok (monorepo karışıklığını azaltır).
+**Docker build context:** Railway çoğu kurulumda **repo kökünü** (`.`) bağlam alır. Bu yüzden [`Dockerfile`](Dockerfile) **repo kökünde** ve `COPY` satırları **`api/...`** ile başlar; `api/Dockerfile` + `COPY tsconfig.json` kullanıldığında bağlam kök ise `tsconfig.json` bulunamaz.
 
-### A) Root Directory = `api` (en basit)
+### Önerilen ayarlar
 
-1. **Settings → Build → Root Directory:** `api` (veya `/api`)
-2. **Builder:** **Dockerfile** (Railpack / Nixpacks değil).
-3. **Dockerfile path:** `Dockerfile` (servis kökü `api` olduğu için [`api/Dockerfile`](api/Dockerfile) kullanılır).
-4. [`api/railway.json`](api/railway.json) `builder: DOCKERFILE` içerir.
+1. **Settings → Build → Root Directory:** **boş** (veya `.` / `/`) — **`api` yazmayın**; aksi halde `COPY api/...` yolları bozulur.
+2. **Builder:** **Dockerfile** (Railpack değil).
+3. **Dockerfile path:** `Dockerfile` (kökteki dosya — [`railway.json`](railway.json) ile uyumlu).
+4. **`RAILWAY_DOCKERFILE_PATH`** gerekirse: `Dockerfile` (kök).
 
-### B) Root Directory = repo kökü (boş / `.`)
+### Railpack / `start.sh` sorunları
 
-1. **Root Directory** boş bırakın.
-2. **Builder:** **Dockerfile**.
-3. Kök [`railway.json`](railway.json) içinde **`dockerfilePath`: `api/Dockerfile`** tanımlı; build bu dosyayı kullanır.
-
-### Hâlâ Railpack görüyorsanız
-
-1. Servis **Variables** içine ekleyin: **`RAILWAY_DOCKERFILE_PATH`** = `api/Dockerfile` (kök dizinden deploy ediyorsanız) veya sadece `Dockerfile` (Root Directory = `api` iken).
-2. **Settings → Build** ekranında **Builder** açılır listesinden **Dockerfile** seçili olduğundan emin olun (bazı projelerde varsayılan Railpack kalabiliyor).
-3. Değişiklikten sonra **Redeploy** edin.
+**Builder** hâlâ Railpack ise veya build plan hatası varsa yukarıdaki gibi **Dockerfile** seçin ve **Redeploy** edin.
 
 **Ortam:** PostgreSQL eklentisinden `DATABASE_URL`’i API servisine bağlayın (`PORT` Railway tarafından atanır).
 

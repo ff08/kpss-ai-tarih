@@ -1,15 +1,16 @@
-# Build context: api/ (Railway Root Directory = api olduğunda)
+# Build context: repo kökü (.) — Railway bu şekilde çözer
+# COPY yolları api/ ile başlar
 FROM node:20-slim
 WORKDIR /app
 
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
+COPY api/package*.json ./
 RUN npm ci
 
-COPY prisma ./prisma
-COPY src ./src
-COPY tsconfig.json ./
+COPY api/prisma ./prisma
+COPY api/src ./src
+COPY api/tsconfig.json ./
 
 RUN npx prisma generate && npm run build
 RUN npm prune --omit=dev

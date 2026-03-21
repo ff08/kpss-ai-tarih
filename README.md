@@ -98,8 +98,9 @@ npx expo start
 
 ## İçerik ekleme
 
-- Örnek bilgi kartları `api/prisma/seed.ts` içinde; `turk_name_culture_centers` alt konusunda 3 kart vardır.
-- Yeni kartlar için `InformationCard` satırları ekleyip seed’i tekrar çalıştırın veya SQL/Prisma ile doğrudan ekleyin.
+- Tüm konu/alt konu ağacı ve **bilgi kartları** [`api/prisma/seed.ts`](api/prisma/seed.ts) + [`api/prisma/seed-cards-data.ts`](api/prisma/seed-cards-data.ts) içindedir (her alt konuda 2 kart; toplam **60** bilgi kartı).
+- Seed’i yeniden çalıştırmak mevcut kartları silip baştan yükler: `cd api && npm run db:seed` (`DATABASE_URL` gerekli).
+- Yeni kart eklemek için `seed-cards-data.ts` içinde `seedInformationCards` dizisine kayıt ekleyin; `id` değerleri benzersiz olmalıdır.
 
 ## Lisans
 

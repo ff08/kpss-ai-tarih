@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { seedInformationCards } from "./seed-cards-data";
 
 const prisma = new PrismaClient();
 
@@ -207,30 +208,6 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     },
   ];
 
-const sampleCardsTurkName: { id: string; title: string; content: string; tag: string | null }[] = [
-  {
-    id: "info_001",
-    title: "Türklerin İlk Kültür Merkezleri",
-    content:
-      "Orta Asya'da Türk izlerine rastlanan en eski kültür merkezlerini karıştırma:\n• **Anav:** Orta Asya'nın en eski kültürü.\n• **Afanesyevo:** Türklere ait en eski kültür merkezi.\n• **Andronova:** Türklerin atalarının yaşadığı en geniş yayılma alanı.\n• **Tagar:** En gelişmiş ve günümüze en yakın olan kültür merkezi.",
-    tag: "Sınavda Çıkar",
-  },
-  {
-    id: "info_002",
-    title: "İkili Teşkilat Sistemi",
-    content:
-      "Eski Türklerde devlet; 'Doğu' ve 'Batı' olarak ikiye ayrılarak yönetilirdi.\n• **Doğu:** Kutsal kabul edilir, asıl hükümdar (Kağan) burada otururdu.\n• **Batı:** Hükümdarın kardeşi 'Yabgu' unvanıyla burayı yönetirdi.\n**Not:** Bu sistem yönetimi kolaylaştırsa da devletin parçalanmasını hızlandırmıştır.",
-    tag: "Kritik Bilgi",
-  },
-  {
-    id: "info_003",
-    title: "Uygurların 'İlklere' İmzası",
-    content:
-      "Manihaizm dinini benimseyen Uygurlar ile Türk tarihinde şu değişimler yaşandı:\n• Göçebe hayattan **Yerleşik Hayata** geçildi.\n• Çadır yerine **Kalıcı Mimari** (Tapınak, Saray) başladı.\n• İlk kez **Kütüphanecilik** ve **Örgün Eğitim** faaliyetleri görüldü.\n• Tarım faaliyetleri ve sulama kanalları yaygınlaştı.",
-    tag: "Değişim Süreci",
-  },
-];
-
 async function main() {
   await prisma.informationCard.deleteMany();
   await prisma.subtopic.deleteMany();
@@ -253,17 +230,22 @@ async function main() {
     });
   }
 
-  for (const c of sampleCardsTurkName) {
+  for (const c of seedInformationCards) {
     await prisma.informationCard.create({
       data: {
         id: c.id,
-        subtopicId: "turk_name_culture_centers",
+        subtopicId: c.subtopicId,
         title: c.title,
         content: c.content,
         tag: c.tag,
       },
     });
   }
+
+  const topicCount = await prisma.topic.count();
+  const subCount = await prisma.subtopic.count();
+  const cardCount = await prisma.informationCard.count();
+  console.log(`Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${cardCount} bilgi kartı.`);
 }
 
 main()

@@ -91,6 +91,7 @@ npm install
 npx expo start
 ```
 
+- **Expo Go uyumu:** Mobil proje **Expo SDK 52** kullanır; App Store / Play Store’daki **Expo Go** uygulamasını güncel tutun. “Project is incompatible with this version of Expo Go” hatası genelde mağazadan **Expo Go’yu güncellemek** veya SDK’nın Expo Go ile eşleşmesiyle giderilir.
 - **iOS simülatör / web:** API genelde `http://localhost:3000` ile erişilir.
 - **Android emülatör:** Uygulama varsayılan olarak `http://10.0.2.2:3000` kullanır (bilgisayardaki API’ye köprü).
 - **Fiziksel cihaz:** Bilgisayarın yerel ağ IP’sini kullanın; `mobile/.env` içinde `EXPO_PUBLIC_API_URL=http://192.168.x.x:3000` tanımlayabilirsiniz (Expo bu değişkeni bundle’a alır).

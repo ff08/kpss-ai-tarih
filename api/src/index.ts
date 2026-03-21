@@ -20,7 +20,61 @@ async function build() {
       orderBy: { sortOrder: "asc" },
       select: { id: true, title: true, description: true, sortOrder: true },
     });
-    return { topics };
+    const topicIds = topics.map((t) => t.id);
+    const subtopics = await prisma.subtopic.findMany({
+      where: { topicId: { in: topicIds } },
+      select: { id: true, topicId: true },
+    });
+    const subtopicToTopic = new Map(subtopics.map((s) => [s.id, s.topicId]));
+
+    type TopicStats = {
+      subtopicCount: number;
+      informationCount: number;
+      openQaCount: number;
+      mcqCount: number;
+    };
+    const stats = new Map<string, TopicStats>();
+    for (const t of topics) {
+      stats.set(t.id, { subtopicCount: 0, informationCount: 0, openQaCount: 0, mcqCount: 0 });
+    }
+    for (const s of subtopics) {
+      const row = stats.get(s.topicId);
+      if (row) row.subtopicCount += 1;
+    }
+
+    const subtopicIds = subtopics.map((s) => s.id);
+    const cardCounts =
+      subtopicIds.length === 0
+        ? []
+        : await prisma.informationCard.groupBy({
+            by: ["subtopicId", "kind"],
+            where: { subtopicId: { in: subtopicIds } },
+            _count: { _all: true },
+          });
+
+    for (const row of cardCounts) {
+      const topicId = subtopicToTopic.get(row.subtopicId);
+      if (!topicId) continue;
+      const agg = stats.get(topicId);
+      if (!agg) continue;
+      const n = row._count._all;
+      if (row.kind === "INFORMATION") agg.informationCount += n;
+      else if (row.kind === "OPEN_QA") agg.openQaCount += n;
+      else if (row.kind === "MCQ") agg.mcqCount += n;
+    }
+
+    return {
+      topics: topics.map((t) => {
+        const s = stats.get(t.id)!;
+        return {
+          ...t,
+          subtopicCount: s.subtopicCount,
+          informationCount: s.informationCount,
+          openQaCount: s.openQaCount,
+          mcqCount: s.mcqCount,
+        };
+      }),
+    };
   });
 
   app.get("/topics/:topicId/subtopics", async (request, reply) => {

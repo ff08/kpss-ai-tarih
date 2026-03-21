@@ -6,8 +6,8 @@ import { useRouter } from "expo-router";
 import type { ColorPalette } from "../constants/theme";
 import { useTheme } from "../contexts/ThemeContext";
 
-/** Status bar altı + header içi üst boşluk (ekstra) */
-const EXTRA_TOP = 18;
+/** Yalnızca güvenli alan (insets.top); ekstra üst boşluk yok — başlık bandı ekranın üstüne kadar */
+const EXTRA_TOP = 0;
 /** Header içi alt boşluk */
 const EXTRA_BOTTOM = 20;
 /** Header bandı ile altındaki ana içerik arası */

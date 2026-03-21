@@ -20,6 +20,15 @@ export type ColorPalette = {
   mcqCorrectBorder: string;
   mcqWrongBg: string;
   mcqWrongBorder: string;
+  /** Anasayfa konu satırı istatistik chip’leri */
+  topicStatSubBg: string;
+  topicStatSubFg: string;
+  topicStatInfoBg: string;
+  topicStatInfoFg: string;
+  topicStatQaBg: string;
+  topicStatQaFg: string;
+  topicStatMcqBg: string;
+  topicStatMcqFg: string;
 };
 
 export const darkPalette: ColorPalette = {
@@ -42,6 +51,14 @@ export const darkPalette: ColorPalette = {
   mcqCorrectBorder: "#4caf50",
   mcqWrongBg: "#2e1a1a",
   mcqWrongBorder: "#e57373",
+  topicStatSubBg: "#3d3520",
+  topicStatSubFg: "#f0e6b8",
+  topicStatInfoBg: "#1e2a3d",
+  topicStatInfoFg: "#a8c4ff",
+  topicStatQaBg: "#2d2440",
+  topicStatQaFg: "#d4b8f0",
+  topicStatMcqBg: "#243d38",
+  topicStatMcqFg: "#a8e6d4",
 };
 
 /** Aydınlık: beyaz/açık gri arka plan */
@@ -65,4 +82,12 @@ export const lightPalette: ColorPalette = {
   mcqCorrectBorder: "#2e7d32",
   mcqWrongBg: "#ffebee",
   mcqWrongBorder: "#c62828",
+  topicStatSubBg: "#fff8e6",
+  topicStatSubFg: "#7a5f00",
+  topicStatInfoBg: "#e8f0ff",
+  topicStatInfoFg: "#1e4a8c",
+  topicStatQaBg: "#f3e8ff",
+  topicStatQaFg: "#5b2d8c",
+  topicStatMcqBg: "#e6faf5",
+  topicStatMcqFg: "#0d5c4a",
 };

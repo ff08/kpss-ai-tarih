@@ -9,24 +9,19 @@ import {
 
 const prisma = new PrismaClient();
 
-/** Ana sayfa konu listesinde başlık altına kısa açıklama */
-const TOPIC_DESCRIPTIONS: Record<string, string> = {
-  pre_islam_turk: "Orta Asya, göç ve İslamiyet öncesi Türk boyları",
-  turk_islam: "Karahanlı’dan Büyük Selçuklu’ya Türk–İslam medeniyeti",
-  anadolu_selcuk: "Anadolu beylikleri ve Türkiye Selçuklu Devleti",
-  ottoman_political: "Kuruluş, yükseliş, duraklama ve dağılma dönemleri",
-  ottoman_culture: "Divan’dan taşraya teşkilat, hukuk ve toplumsal yapı",
-  ottoman_xx: "Trablusgarp, Balkan Savaşları, I. Dünya Savaşı ve Mondros",
-  war_independence: "Kongreler, cepheler, diplomatik zafer",
-  ataturk_principles: "İlkeler, inkılaplar ve çağdaşlaşma",
-  modern_turk_world: "İki savaş arası, II. Dünya Savaşı ve soğuk savaş",
-};
-
-const topics: { id: string; title: string; sortOrder: number; subtopics: { id: string; title: string; sortOrder: number }[] }[] =
-  [
+const topics: {
+  id: string;
+  title: string;
+  /** Ana sayfa satırında gösterilen kısa açıklama */
+  description: string;
+  sortOrder: number;
+  subtopics: { id: string; title: string; sortOrder: number }[];
+}[] = [
     {
       id: "pre_islam_turk",
       title: "İslamiyet Öncesi Türk Tarihi",
+      description:
+        "Orta Asya kültür merkezleri, Asya Hun ve Göktürk devletleri, kut–kurultay geleneği ve İslamiyet öncesi Türk medeniyeti.",
       sortOrder: 1,
       subtopics: [
         {
@@ -81,6 +76,8 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     {
       id: "anadolu_selcuk",
       title: "Türkiye (Anadolu) Selçuklu Tarihi ve Beylikler",
+      description:
+        "I. ve II. dönem Anadolu beylikleri, Türkiye Selçuklu Devleti ve Osmanlı’ya zemin hazırlayan siyasi düzen.",
       sortOrder: 3,
       subtopics: [
         {
@@ -103,6 +100,8 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     {
       id: "ottoman_political",
       title: "Osmanlı Devleti: Siyasi Tarih",
+      description:
+        "1299–1922 kuruluştan dağılışa fetihler, duraklama ve gerileme; antlaşmalar, isyanlar ve diplomasi ile siyasi çizgi.",
       sortOrder: 4,
       subtopics: [
         { id: "foundation_1299_1453", title: "Kuruluş Dönemi (1299 - 1453)", sortOrder: 1 },
@@ -126,6 +125,8 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     {
       id: "ottoman_culture",
       title: "Osmanlı Kültür ve Medeniyeti (Sınavın Kalbi)",
+      description:
+        "Merkez ve taşra teşkilatı, tımar, hukuk, ordu, eğitim, lonca ve ekonomi; sınavda sık çıkan kurum ve kavramlar.",
       sortOrder: 5,
       subtopics: [
         {
@@ -167,6 +168,8 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     {
       id: "war_independence",
       title: "Kurtuluş Savaşı: Hazırlık ve Muharebeler",
+      description:
+        "Amasya genelgesi, Erzurum ve Sivas kongreleri, TBMM, cephe muharebeleri, Mudanya ve Lozan ile tam bağımsızlık.",
       sortOrder: 7,
       subtopics: [
         {
@@ -189,6 +192,8 @@ const topics: { id: string; title: string; sortOrder: number; subtopics: { id: s
     {
       id: "ataturk_principles",
       title: "Atatürk İlke ve İnkılapları",
+      description:
+        "Altı ilke, siyasi–hukuki–toplumsal inkılaplar ve çağdaş laik Cumhuriyet’in temel taşları.",
       sortOrder: 8,
       subtopics: [
         {
@@ -238,7 +243,7 @@ async function main() {
         id: t.id,
         title: t.title,
         sortOrder: t.sortOrder,
-        description: TOPIC_DESCRIPTIONS[t.id] ?? null,
+        description: t.description,
         subtopics: {
           create: t.subtopics.map((s) => ({
             id: s.id,

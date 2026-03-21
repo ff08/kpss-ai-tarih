@@ -2,7 +2,16 @@ import { getDefaultApiBase } from "./config";
 
 const base = () => getDefaultApiBase();
 
-export type Topic = { id: string; title: string; sortOrder: number; description?: string | null };
+export type Topic = {
+  id: string;
+  title: string;
+  sortOrder: number;
+  description?: string | null;
+  subtopicCount: number;
+  informationCount: number;
+  openQaCount: number;
+  mcqCount: number;
+};
 
 export type Subtopic = { id: string; title: string; sortOrder: number };
 

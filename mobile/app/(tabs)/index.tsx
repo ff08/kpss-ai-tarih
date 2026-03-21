@@ -9,13 +9,14 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ScreenHeader } from "../components/ScreenHeader";
-import type { ColorPalette } from "../constants/theme";
-import { useTheme } from "../contexts/ThemeContext";
-import { APP_TAGLINE } from "../constants/app";
-import { getTimeOfDayGreeting } from "../lib/greeting";
-import { fetchTopics, type Topic } from "../lib/api";
+import { ScreenHeader } from "../../components/ScreenHeader";
+import type { ColorPalette } from "../../constants/theme";
+import { useTheme } from "../../contexts/ThemeContext";
+import { APP_TAGLINE } from "../../constants/app";
+import { getTimeOfDayGreeting } from "../../lib/greeting";
+import { fetchTopics, type Topic } from "../../lib/api";
 
 export default function TopicsScreen() {
   const { colors } = useTheme();
@@ -51,7 +52,7 @@ export default function TopicsScreen() {
 
   if (loading && topics.length === 0) {
     return (
-      <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+      <SafeAreaView style={styles.safe} edges={["left", "right"]}>
         <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -63,7 +64,7 @@ export default function TopicsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+      <SafeAreaView style={styles.safe} edges={["left", "right"]}>
         <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>Bağlantı hatası</Text>
@@ -81,7 +82,7 @@ export default function TopicsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
       <FlatList
         style={styles.listFlex}
@@ -97,6 +98,32 @@ export default function TopicsScreen() {
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               {item.description ? <Text style={styles.rowDesc}>{item.description}</Text> : null}
+              <View style={styles.statsRow}>
+                <TopicStatChip
+                  icon="layers-outline"
+                  label={String(item.subtopicCount ?? 0)}
+                  bg={colors.topicStatSubBg}
+                  fg={colors.topicStatSubFg}
+                />
+                <TopicStatChip
+                  icon="document-text-outline"
+                  label={String(item.informationCount ?? 0)}
+                  bg={colors.topicStatInfoBg}
+                  fg={colors.topicStatInfoFg}
+                />
+                <TopicStatChip
+                  icon="chatbubbles-outline"
+                  label={String(item.openQaCount ?? 0)}
+                  bg={colors.topicStatQaBg}
+                  fg={colors.topicStatQaFg}
+                />
+                <TopicStatChip
+                  icon="list-circle-outline"
+                  label={String(item.mcqCount ?? 0)}
+                  bg={colors.topicStatMcqBg}
+                  fg={colors.topicStatMcqFg}
+                />
+              </View>
             </View>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
@@ -106,6 +133,34 @@ export default function TopicsScreen() {
   );
 }
 
+function TopicStatChip(props: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  bg: string;
+  fg: string;
+}) {
+  const { icon, label, bg, fg } = props;
+  return (
+    <View style={[topicStatStyles.chip, { backgroundColor: bg }]}>
+      <Ionicons name={icon} size={13} color={fg} />
+      <Text style={[topicStatStyles.chipText, { color: fg }]}>{label}</Text>
+    </View>
+  );
+}
+
+const topicStatStyles = StyleSheet.create({
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 6,
+    marginTop: 6,
+  },
+  chipText: { fontSize: 11, fontWeight: "600", marginLeft: 4 },
+});
+
 function createStyles(colors: ColorPalette) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
@@ -113,7 +168,7 @@ function createStyles(colors: ColorPalette) {
     list: { paddingHorizontal: 16, paddingBottom: 24 },
     row: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       justifyContent: "space-between",
       backgroundColor: colors.card,
       borderRadius: 12,
@@ -132,7 +187,8 @@ function createStyles(colors: ColorPalette) {
       lineHeight: 17,
       marginTop: 5,
     },
-    chevron: { color: colors.muted, fontSize: 22, fontWeight: "300" },
+    statsRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 2, marginHorizontal: -2 },
+    chevron: { color: colors.muted, fontSize: 22, fontWeight: "300", marginTop: 2 },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: colors.bg },
     muted: { color: colors.muted, marginTop: 12, textAlign: "center", lineHeight: 20 },
     errorTitle: { color: colors.text, fontSize: 18, fontWeight: "600" },

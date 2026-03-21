@@ -22,7 +22,9 @@ function RootLayoutInner() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="topic/[topicId]" />
+        <Stack.Screen name="subtopic/[subtopicId]" />
       </Stack>
     </>
   );

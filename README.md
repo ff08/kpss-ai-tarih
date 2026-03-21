@@ -36,16 +36,24 @@ KPSS Tarih için **bilgi kartları** (Faz 1): Expo (React Native) mobil uygulama
 
 ## GitHub’a yükleme
 
-1. [GitHub](https://github.com/new) üzerinde **yeni bir boş repository** oluşturun (README / .gitignore eklemeyin; çakışma olmasın).
-2. Bilgisayarınızda proje klasöründe:
+**GitHub CLI (`gh`) ile otomatik** (önerilen — repoyu oluşturur ve `main` dalını push eder):
 
-   ```bash
+1. Bir kez oturum açın: `gh auth login` (tarayıcı veya token ile).
+2. Proje kökünde:
+
+   ```powershell
    cd kpss-ai-tarih
-   git remote add origin https://github.com/KULLANICI_ADINIZ/REPO_ADI.git
-   git push -u origin main
+   .\scripts\push-to-github.ps1
    ```
 
-   İlk kez `git` kullanıyorsanız GitHub kimlik doğrulaması için [HTTPS + Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) veya [GitHub CLI](https://cli.github.com/) tercih edebilirsiniz.
+   Varsayılan repo adı `kpss-ai-tarih` (public). Farklı ad için: `$env:GITHUB_REPO_NAME = "my-repo"; .\scripts\push-to-github.ps1`
+
+**Manuel:** [github.com/new](https://github.com/new) üzerinde boş repo oluşturup:
+
+```bash
+git remote add origin https://github.com/KULLANICI/REPO.git
+git push -u origin main
+```
 
 ## Railway build (özet)
 

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { PrismaClient, type ContentDatasetKind } from "@prisma/client";
+import { Prisma, PrismaClient, type ContentDatasetKind } from "@prisma/client";
 import { z } from "zod";
 
 const prisma = new PrismaClient();
@@ -12,6 +12,8 @@ const contentIssueBodySchema = z.object({
   datasetKind: z.enum(["INFORMATION", "OPEN_QA", "MCQ"]),
   contentRowId: z.number().int().positive(),
   category: z.enum(["WRONG_INFO", "CONFLICTING_INFO", "MISSING_INFO"]),
+  /** Aynı cihaz/uygulama örneği için kalıcı UUID (tekrar bildirimi engellemek) */
+  reporterClientId: z.string().uuid(),
   note: z.string().max(8000).optional().nullable(),
   topicTitleSnapshot: z.string().max(500).optional().nullable(),
   subtopicTitleSnapshot: z.string().max(500).optional().nullable(),
@@ -342,20 +344,28 @@ async function build() {
     if (!exists) {
       return reply.status(404).send({ error: "İçerik bulunamadı veya konu/alt konu eşleşmiyor" });
     }
-    const row = await prisma.contentIssueReport.create({
-      data: {
-        topicId: b.topicId,
-        subtopicId: b.subtopicId,
-        datasetKind: b.datasetKind as ContentDatasetKind,
-        contentRowId: b.contentRowId,
-        category: b.category,
-        note: b.note ?? undefined,
-        topicTitleSnapshot: b.topicTitleSnapshot ?? undefined,
-        subtopicTitleSnapshot: b.subtopicTitleSnapshot ?? undefined,
-        cardTitleSnapshot: b.cardTitleSnapshot ?? undefined,
-      },
-    });
-    return { id: row.id, createdAt: row.createdAt.toISOString() };
+    try {
+      const row = await prisma.contentIssueReport.create({
+        data: {
+          topicId: b.topicId,
+          subtopicId: b.subtopicId,
+          datasetKind: b.datasetKind as ContentDatasetKind,
+          contentRowId: b.contentRowId,
+          category: b.category,
+          reporterClientId: b.reporterClientId,
+          note: b.note ?? undefined,
+          topicTitleSnapshot: b.topicTitleSnapshot ?? undefined,
+          subtopicTitleSnapshot: b.subtopicTitleSnapshot ?? undefined,
+          cardTitleSnapshot: b.cardTitleSnapshot ?? undefined,
+        },
+      });
+      return { id: row.id, createdAt: row.createdAt.toISOString() };
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        return reply.status(409).send({ error: "Bu kart için zaten bildirim gönderdiniz." });
+      }
+      throw e;
+    }
   });
 
   return app;

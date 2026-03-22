@@ -96,6 +96,7 @@ export async function submitContentIssueReport(payload: {
   datasetKind: ContentDatasetKind;
   contentRowId: number;
   category: ContentIssueCategory;
+  reporterClientId: string;
   note?: string | null;
   topicTitleSnapshot?: string | null;
   subtopicTitleSnapshot?: string | null;
@@ -114,7 +115,9 @@ export async function submitContentIssueReport(payload: {
     } catch {
       /* ignore */
     }
-    throw new Error(msg);
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = r.status;
+    throw err;
   }
   return r.json() as Promise<{ id: number; createdAt: string }>;
 }

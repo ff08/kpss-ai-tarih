@@ -129,6 +129,8 @@ model ContentIssueReport {
   topicTitleSnapshot    String?
   subtopicTitleSnapshot String?
   cardTitleSnapshot     String?              @db.VarChar(512)
+  /// Uygulama tarafında üretilen kalıcı istemci kimliği (aynı cihazdan aynı karta tekrar bildirimi engellemek için)
+  reporterClientId    String?
   status                ContentIssueStatus   @default(OPEN)
   createdAt             DateTime             @default(now())
 
@@ -137,4 +139,5 @@ model ContentIssueReport {
   @@index([datasetKind, contentRowId])
   @@index([status, createdAt])
   @@index([createdAt])
+  @@unique([reporterClientId, subtopicId, datasetKind, contentRowId])
 }

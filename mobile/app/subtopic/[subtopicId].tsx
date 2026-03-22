@@ -37,6 +37,8 @@ import { APP_TAGLINE } from "../../constants/app";
 import type { ColorPalette } from "../../constants/theme";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { loadReportedKeySet, markCardReported, reportKey } from "../../lib/contentReportCache";
+import { getReporterClientId } from "../../lib/reporterClientId";
 import { getResumeIndexForMode } from "../../lib/studyProgress";
 
 const MODE_LABELS: Record<CardKind, string> = {
@@ -82,6 +84,7 @@ export default function CardDeckScreen() {
   const deckProgressAnim = useRef(new Animated.Value(0)).current;
   const saveScrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deckEpoch, setDeckEpoch] = useState(0);
+  const [reportedKeySet, setReportedKeySet] = useState<Set<string>>(() => new Set());
   const getSubtopicRef = useRef(getSubtopic);
   const indexRef = useRef(0);
   const modeRef = useRef<CardKind | null>(null);
@@ -100,6 +103,16 @@ export default function CardDeckScreen() {
   useEffect(() => {
     cardsLenRef.current = cards.length;
   }, [cards.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadReportedKeySet().then((set) => {
+      if (!cancelled) setReportedKeySet(set);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -248,9 +261,18 @@ export default function CardDeckScreen() {
   }, [mode, cards.length, subtopicIdNum, index, recordScroll]);
 
   const listExtraData = useMemo(
-    () => ({ mode, index, mcqTimeLeft, deckEpoch }),
-    [mode, index, mcqTimeLeft, deckEpoch],
+    () => ({ mode, index, mcqTimeLeft, deckEpoch, reportedKeySet }),
+    [mode, index, mcqTimeLeft, deckEpoch, reportedKeySet],
   );
+
+  const currentCardReported = useMemo(() => {
+    if (!mode || !Number.isFinite(subtopicIdNum) || cards.length === 0) return false;
+    const cur = cards[index];
+    if (!cur) return false;
+    const rowId = Number(cur.id);
+    if (!Number.isFinite(rowId)) return false;
+    return reportedKeySet.has(reportKey(subtopicIdNum, mode, rowId));
+  }, [mode, subtopicIdNum, cards, index, reportedKeySet]);
 
   const initialScrollIndex = useMemo(() => {
     if (cards.length === 0) return 0;
@@ -266,18 +288,34 @@ export default function CardDeckScreen() {
       if (!Number.isFinite(rowId)) {
         throw new Error("Geçersiz kart");
       }
-      await submitContentIssueReport({
-        topicId,
-        subtopicId: subtopicIdNum,
-        datasetKind: mode,
-        contentRowId: rowId,
-        category,
-        note: note || undefined,
-        topicTitleSnapshot: topicTitle,
-        subtopicTitleSnapshot: subTitle,
-        cardTitleSnapshot: reportCard.title,
-      });
-      Alert.alert("Teşekkürler", "Bildiriminiz kaydedildi.");
+      const cacheKey = reportKey(subtopicIdNum, mode, rowId);
+      const reporterClientId = await getReporterClientId();
+      try {
+        await submitContentIssueReport({
+          topicId,
+          subtopicId: subtopicIdNum,
+          datasetKind: mode,
+          contentRowId: rowId,
+          category,
+          reporterClientId,
+          note: note || undefined,
+          topicTitleSnapshot: topicTitle,
+          subtopicTitleSnapshot: subTitle,
+          cardTitleSnapshot: reportCard.title,
+        });
+        await markCardReported(cacheKey);
+        setReportedKeySet((prev) => new Set(prev).add(cacheKey));
+        Alert.alert("Teşekkürler", "Bildiriminiz kaydedildi.");
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        if (err.status === 409) {
+          await markCardReported(cacheKey);
+          setReportedKeySet((prev) => new Set(prev).add(cacheKey));
+          Alert.alert("Bilgi", err.message || "Bu kart için zaten bildirim gönderdiniz.");
+          return;
+        }
+        throw e;
+      }
     },
     [mode, topicId, subtopicIdNum, reportCard, topicTitle, subTitle],
   );
@@ -414,6 +452,22 @@ export default function CardDeckScreen() {
   const deckProgressTotal = cards.length;
   const deckProgressPos = Math.min(index + 1, deckProgressTotal);
 
+  const headerReportButton =
+    topicId != null && Number.isFinite(subtopicIdNum) && mode && cards.length > 0 && !currentCardReported ? (
+      <CardReportButton
+        variant="header"
+        onPress={() => {
+          const cur = cards[index];
+          if (cur) {
+            setReportCard(cur);
+            setReportOpen(true);
+          }
+        }}
+      />
+    ) : (
+      <View style={styles.mcqBarSpacer} />
+    );
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
       {mode === "MCQ" ? (
@@ -447,7 +501,7 @@ export default function CardDeckScreen() {
               <Text style={styles.mcqTimerText}>{formatMcqTime(mcqTimeLeft)}</Text>
               <Text style={styles.mcqRemainingSub}>Kalan soru: {mcqRemaining}</Text>
             </View>
-            <View style={styles.mcqBarSpacer} />
+            {headerReportButton}
           </View>
         </View>
       ) : (
@@ -479,7 +533,7 @@ export default function CardDeckScreen() {
                 {deckProgressPos} / {deckProgressTotal}
               </Text>
             </View>
-            <View style={styles.mcqBarSpacer} />
+            {headerReportButton}
           </View>
         </View>
       )}
@@ -508,15 +562,7 @@ export default function CardDeckScreen() {
               index: i,
             })}
             renderItem={({ item, index: itemIndex }) => (
-              <View style={[styles.page, styles.pageRel, { height: h }]}>
-                {topicId != null && Number.isFinite(subtopicIdNum) && mode ? (
-                  <CardReportButton
-                    onPress={() => {
-                      setReportCard(item);
-                      setReportOpen(true);
-                    }}
-                  />
-                ) : null}
+              <View style={[styles.page, { height: h }]}>
                 {mode === "INFORMATION" ? (
                   <View style={styles.card}>
                     <ScrollView
@@ -653,9 +699,6 @@ function createSubtopicStyles(colors: ColorPalette) {
     page: {
       paddingHorizontal: 16,
       justifyContent: "center",
-    },
-    pageRel: {
-      position: "relative",
     },
     card: {
       flex: 1,

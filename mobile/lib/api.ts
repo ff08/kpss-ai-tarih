@@ -24,6 +24,10 @@ export type Subtopic = {
 
 export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ";
 
+export type ContentDatasetKind = "INFORMATION" | "OPEN_QA" | "MCQ";
+
+export type ContentIssueCategory = "WRONG_INFO" | "CONFLICTING_INFO" | "MISSING_INFO";
+
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
 
 export type StudyCard = {
@@ -84,6 +88,35 @@ export async function fetchSubtopicMeta(subtopicId: string | number): Promise<{
   const r = await fetch(`${base()}/subtopics/${encodeURIComponent(String(subtopicId))}`);
   if (!r.ok) throw new Error(`Alt konu bilgisi alınamadı (${r.status})`);
   return r.json();
+}
+
+export async function submitContentIssueReport(payload: {
+  topicId: number;
+  subtopicId: number;
+  datasetKind: ContentDatasetKind;
+  contentRowId: number;
+  category: ContentIssueCategory;
+  note?: string | null;
+  topicTitleSnapshot?: string | null;
+  subtopicTitleSnapshot?: string | null;
+  cardTitleSnapshot?: string | null;
+}): Promise<{ id: number; createdAt: string }> {
+  const r = await fetch(`${base()}/content-issue-reports`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    let msg = `Bildirim gönderilemedi (${r.status})`;
+    try {
+      const j = (await r.json()) as { error?: string };
+      if (typeof j.error === "string") msg = j.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return r.json() as Promise<{ id: number; createdAt: string }>;
 }
 
 export async function fetchCards(

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   LayoutChangeEvent,
@@ -17,7 +19,16 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { fetchCards, fetchSubtopicMeta, type CardKind, type StudyCard } from "../../lib/api";
+import {
+  fetchCards,
+  fetchSubtopicMeta,
+  submitContentIssueReport,
+  type CardKind,
+  type ContentIssueCategory,
+  type StudyCard,
+} from "../../lib/api";
+import { CardReportButton } from "../../components/CardReportButton";
+import { ContentIssueReportModal } from "../../components/ContentIssueReportModal";
 import { MdText } from "../../components/MdText";
 import { FlipQaCard } from "../../components/FlipQaCard";
 import { McqSlide } from "../../components/McqSlide";
@@ -26,6 +37,7 @@ import { APP_TAGLINE } from "../../constants/app";
 import type { ColorPalette } from "../../constants/theme";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { getResumeIndexForMode } from "../../lib/studyProgress";
 
 const MODE_LABELS: Record<CardKind, string> = {
   INFORMATION: "Bilgi kartları",
@@ -44,7 +56,7 @@ function formatMcqTime(seconds: number): string {
 
 export default function CardDeckScreen() {
   const { colors } = useTheme();
-  const { recordScroll } = useStudyProgress();
+  const { recordScroll, getSubtopic } = useStudyProgress();
   const styles = useMemo(() => createSubtopicStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { subtopicId } = useLocalSearchParams<{ subtopicId: string }>();
@@ -54,6 +66,9 @@ export default function CardDeckScreen() {
   }, [subtopicId]);
   const [topicTitle, setTopicTitle] = useState("");
   const [subTitle, setSubTitle] = useState("");
+  const [topicId, setTopicId] = useState<number | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportCard, setReportCard] = useState<StudyCard | null>(null);
   const [mode, setMode] = useState<CardKind | null>(null);
   const [cards, setCards] = useState<StudyCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +81,36 @@ export default function CardDeckScreen() {
   const [mcqPaused, setMcqPaused] = useState(false);
   const deckProgressAnim = useRef(new Animated.Value(0)).current;
   const saveScrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [deckEpoch, setDeckEpoch] = useState(0);
+  const getSubtopicRef = useRef(getSubtopic);
+  const indexRef = useRef(0);
+  const modeRef = useRef<CardKind | null>(null);
+  const cardsLenRef = useRef(0);
+
+  useEffect(() => {
+    getSubtopicRef.current = getSubtopic;
+  }, [getSubtopic]);
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    cardsLenRef.current = cards.length;
+  }, [cards.length]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        const m = modeRef.current;
+        const sid = subtopicIdNum;
+        if (!m || !Number.isFinite(sid) || cardsLenRef.current === 0) return;
+        void recordScroll(sid, m, indexRef.current, cardsLenRef.current);
+      };
+    }, [recordScroll, subtopicIdNum]),
+  );
 
   useEffect(() => {
     if (!subtopicId) return;
@@ -77,6 +122,7 @@ export default function CardDeckScreen() {
         if (cancelled) return;
         setTopicTitle(m.topicTitle);
         setSubTitle(m.title);
+        setTopicId(m.topicId);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -94,11 +140,6 @@ export default function CardDeckScreen() {
     setMode(null);
   }, [subtopicId]);
 
-  useLayoutEffect(() => {
-    if (!mode) return;
-    setIndex(0);
-  }, [mode]);
-
   const load = useCallback(async () => {
     if (!subtopicId || !mode) return;
     setError(null);
@@ -108,14 +149,23 @@ export default function CardDeckScreen() {
       const data = await fetchCards(subtopicId, mode);
       setTopicTitle(data.topicTitle);
       setSubTitle(data.title);
+      setTopicId(data.topicId);
       setCards(data.cards);
-      setIndex(0);
+      const resume = getResumeIndexForMode(getSubtopicRef.current(subtopicIdNum), mode, data.cards.length);
+      setIndex(resume);
+      const total = data.cards.length;
+      if (total > 0) {
+        deckProgressAnim.setValue(Math.min(1, (resume + 1) / total));
+      } else {
+        deckProgressAnim.setValue(0);
+      }
+      setDeckEpoch((e) => e + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bir hata oluştu");
     } finally {
       setLoading(false);
     }
-  }, [subtopicId, mode]);
+  }, [subtopicId, mode, subtopicIdNum]);
 
   useEffect(() => {
     if (mode) void load();
@@ -178,13 +228,6 @@ export default function CardDeckScreen() {
     [pageHeight, cards.length],
   );
 
-  useEffect(() => {
-    if (!mode) return;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    });
-  }, [mode, subtopicId]);
-
   const viewConfig = useRef({
     itemVisiblePercentThreshold: 35,
     minimumViewTime: 0,
@@ -198,8 +241,46 @@ export default function CardDeckScreen() {
   }, [pageHeight]);
 
   const goToModeMenu = useCallback(() => {
+    if (mode && cards.length > 0 && Number.isFinite(subtopicIdNum)) {
+      void recordScroll(subtopicIdNum, mode, index, cards.length);
+    }
     setMode(null);
-  }, []);
+  }, [mode, cards.length, subtopicIdNum, index, recordScroll]);
+
+  const listExtraData = useMemo(
+    () => ({ mode, index, mcqTimeLeft, deckEpoch }),
+    [mode, index, mcqTimeLeft, deckEpoch],
+  );
+
+  const initialScrollIndex = useMemo(() => {
+    if (cards.length === 0) return 0;
+    return Math.min(Math.max(0, index), cards.length - 1);
+  }, [cards.length, index]);
+
+  const submitIssueReport = useCallback(
+    async (category: ContentIssueCategory, note: string) => {
+      if (!mode || topicId == null || !Number.isFinite(subtopicIdNum) || !reportCard) {
+        throw new Error("Oturum bilgisi eksik");
+      }
+      const rowId = Number(reportCard.id);
+      if (!Number.isFinite(rowId)) {
+        throw new Error("Geçersiz kart");
+      }
+      await submitContentIssueReport({
+        topicId,
+        subtopicId: subtopicIdNum,
+        datasetKind: mode,
+        contentRowId: rowId,
+        category,
+        note: note || undefined,
+        topicTitleSnapshot: topicTitle,
+        subtopicTitleSnapshot: subTitle,
+        cardTitleSnapshot: reportCard.title,
+      });
+      Alert.alert("Teşekkürler", "Bildiriminiz kaydedildi.");
+    },
+    [mode, topicId, subtopicIdNum, reportCard, topicTitle, subTitle],
+  );
 
   const screenTitle = mode ? MODE_LABELS[mode] : "Çalışma modu";
 
@@ -405,10 +486,13 @@ export default function CardDeckScreen() {
       <View style={styles.listWrap} onLayout={onListLayout}>
         {pageHeight != null ? (
           <FlatList
+            key={`${mode}-${String(subtopicId)}-${deckEpoch}`}
             ref={listRef}
             data={cards}
             keyExtractor={(item) => String(item.id)}
-            extraData={{ mode, index, mcqTimeLeft, cards }}
+            extraData={listExtraData}
+            initialScrollIndex={initialScrollIndex}
+            initialNumToRender={Math.min(40, Math.max(8, initialScrollIndex + 4))}
             pagingEnabled
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}
@@ -424,7 +508,15 @@ export default function CardDeckScreen() {
               index: i,
             })}
             renderItem={({ item, index: itemIndex }) => (
-              <View style={[styles.page, { height: h }]}>
+              <View style={[styles.page, styles.pageRel, { height: h }]}>
+                {topicId != null && Number.isFinite(subtopicIdNum) && mode ? (
+                  <CardReportButton
+                    onPress={() => {
+                      setReportCard(item);
+                      setReportOpen(true);
+                    }}
+                  />
+                ) : null}
                 {mode === "INFORMATION" ? (
                   <View style={styles.card}>
                     <ScrollView
@@ -462,6 +554,19 @@ export default function CardDeckScreen() {
             ? "Her soru için 1 dk; dikey kaydırarak ilerleyin"
             : "Dikey kaydırarak ileri ve geri gidebilirsiniz"}
       </Text>
+      {mode ? (
+        <ContentIssueReportModal
+          key={reportCard ? String(reportCard.id) : "report"}
+          visible={reportOpen}
+          onClose={() => {
+            setReportOpen(false);
+            setReportCard(null);
+          }}
+          onSubmit={submitIssueReport}
+          datasetKind={mode}
+          cardTitlePreview={reportCard?.title ?? ""}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -548,6 +653,9 @@ function createSubtopicStyles(colors: ColorPalette) {
     page: {
       paddingHorizontal: 16,
       justifyContent: "center",
+    },
+    pageRel: {
+      position: "relative",
     },
     card: {
       flex: 1,

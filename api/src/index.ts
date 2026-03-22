@@ -1,9 +1,22 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type ContentDatasetKind } from "@prisma/client";
+import { z } from "zod";
 
 const prisma = new PrismaClient();
+
+const contentIssueBodySchema = z.object({
+  topicId: z.number().int().positive(),
+  subtopicId: z.number().int().positive(),
+  datasetKind: z.enum(["INFORMATION", "OPEN_QA", "MCQ"]),
+  contentRowId: z.number().int().positive(),
+  category: z.enum(["WRONG_INFO", "CONFLICTING_INFO", "MISSING_INFO"]),
+  note: z.string().max(8000).optional().nullable(),
+  topicTitleSnapshot: z.string().max(500).optional().nullable(),
+  subtopicTitleSnapshot: z.string().max(500).optional().nullable(),
+  cardTitleSnapshot: z.string().max(512).optional().nullable(),
+});
 const app = Fastify({ logger: true });
 
 const port = Number(process.env.PORT) || 3000;
@@ -13,6 +26,35 @@ function parsePositiveIntParam(raw: string): number | null {
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1) return null;
   return n;
+}
+
+async function verifyContentRowExists(
+  topicId: number,
+  subtopicId: number,
+  datasetKind: ContentDatasetKind,
+  contentRowId: number,
+): Promise<boolean> {
+  const sub = await prisma.subtopic.findFirst({
+    where: { id: subtopicId, topicId },
+    select: { id: true },
+  });
+  if (!sub) return false;
+  if (datasetKind === "INFORMATION") {
+    return !!(await prisma.informationContent.findFirst({
+      where: { id: contentRowId, subtopicId },
+      select: { id: true },
+    }));
+  }
+  if (datasetKind === "OPEN_QA") {
+    return !!(await prisma.openQaContent.findFirst({
+      where: { id: contentRowId, subtopicId },
+      select: { id: true },
+    }));
+  }
+  return !!(await prisma.mcqContent.findFirst({
+    where: { id: contentRowId, subtopicId },
+    select: { id: true },
+  }));
 }
 
 async function build() {
@@ -283,6 +325,37 @@ async function build() {
         hint: null,
       })),
     };
+  });
+
+  app.post("/content-issue-reports", async (request, reply) => {
+    const parsed = contentIssueBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Geçersiz istek" });
+    }
+    const b = parsed.data;
+    const exists = await verifyContentRowExists(
+      b.topicId,
+      b.subtopicId,
+      b.datasetKind as ContentDatasetKind,
+      b.contentRowId,
+    );
+    if (!exists) {
+      return reply.status(404).send({ error: "İçerik bulunamadı veya konu/alt konu eşleşmiyor" });
+    }
+    const row = await prisma.contentIssueReport.create({
+      data: {
+        topicId: b.topicId,
+        subtopicId: b.subtopicId,
+        datasetKind: b.datasetKind as ContentDatasetKind,
+        contentRowId: b.contentRowId,
+        category: b.category,
+        note: b.note ?? undefined,
+        topicTitleSnapshot: b.topicTitleSnapshot ?? undefined,
+        subtopicTitleSnapshot: b.subtopicTitleSnapshot ?? undefined,
+        cardTitleSnapshot: b.cardTitleSnapshot ?? undefined,
+      },
+    });
+    return { id: row.id, createdAt: row.createdAt.toISOString() };
   });
 
   return app;

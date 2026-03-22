@@ -4,8 +4,11 @@ import type { CardKind } from "./api";
 const STORAGE_KEY = "kpss_study_progress_v1";
 
 export type ModeProgress = {
+  /** İlerleme yüzdesi için: görülen en ileri kart */
   furthestIndex: number;
   totalLastSeen: number;
+  /** Kaldığı yerden devam: son görülen kart (kaydırma anındaki indeks) */
+  lastViewedIndex?: number;
 };
 
 export type SubtopicProgress = {
@@ -50,17 +53,36 @@ export async function saveProgressMap(map: ProgressMap): Promise<void> {
 export function mergeModeProgress(
   existing: SubtopicProgress | undefined,
   mode: CardKind,
-  furthestIndex: number,
+  currentIndex: number,
   total: number,
 ): SubtopicProgress {
   const prev = existing?.[mode];
-  const rawMax = Math.max(furthestIndex, prev?.furthestIndex ?? -1);
-  const capped = total > 0 ? Math.min(rawMax, total - 1) : -1;
+  const rawMax = Math.max(currentIndex, prev?.furthestIndex ?? -1);
+  const cappedFurthest = total > 0 ? Math.min(rawMax, total - 1) : -1;
+  const lastViewed = total > 0 ? Math.min(Math.max(0, currentIndex), total - 1) : 0;
   return {
     ...existing,
-    [mode]: { furthestIndex: capped, totalLastSeen: total },
+    [mode]: {
+      furthestIndex: cappedFurthest,
+      lastViewedIndex: lastViewed,
+      totalLastSeen: total,
+    },
     updatedAt: Date.now(),
   };
+}
+
+/** Mod açıldığında listede hangi karta gidileceği (total değişince sıkıştırılır). */
+export function getResumeIndexForMode(
+  p: SubtopicProgress | undefined,
+  mode: CardKind,
+  total: number,
+): number {
+  if (total <= 0) return 0;
+  const m = p?.[mode];
+  if (!m) return 0;
+  const prefer = m.lastViewedIndex ?? m.furthestIndex;
+  if (prefer < 0) return 0;
+  return Math.min(prefer, total - 1);
 }
 
 function modeRatioForMode(

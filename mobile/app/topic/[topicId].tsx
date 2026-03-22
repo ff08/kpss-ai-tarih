@@ -13,11 +13,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { APP_TAGLINE } from "../../constants/app";
 import type { ColorPalette } from "../../constants/theme";
+import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { fetchSubtopics, type Subtopic } from "../../lib/api";
 
 export default function SubtopicsScreen() {
   const { colors } = useTheme();
+  const { getOverall } = useStudyProgress();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   const router = useRouter();
@@ -81,15 +83,36 @@ export default function SubtopicsScreen() {
           <RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />
         }
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={() => router.push(`/subtopic/${item.id}`)}
-          >
-            <Text style={styles.rowTitle}>{item.title}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const { percentDone, percentRemaining, hasContent } = getOverall(item.id, {
+            informationCount: item.informationCount ?? 0,
+            openQaCount: item.openQaCount ?? 0,
+            mcqCount: item.mcqCount ?? 0,
+          });
+          return (
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              onPress={() => router.push(`/subtopic/${item.id}`)}
+            >
+              <View style={styles.rowMain}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                {hasContent ? (
+                  <>
+                    <View style={styles.subProgressTrack}>
+                      <View style={[styles.subProgressFill, { width: `${percentDone}%` }]} />
+                    </View>
+                    <Text style={styles.subProgressMeta}>
+                      %{percentDone} tamamlandı · ~%{percentRemaining} kaldı
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.subProgressEmpty}>Bu alt konuda henüz kart yok</Text>
+                )}
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -113,7 +136,34 @@ function createStyles(colors: ColorPalette) {
       borderColor: colors.border,
     },
     rowPressed: { opacity: 0.92 },
-    rowTitle: { color: colors.text, fontSize: 15, flex: 1, paddingRight: 12, lineHeight: 22 },
+    rowMain: { flex: 1, minWidth: 0, paddingRight: 8 },
+    rowTitle: { color: colors.text, fontSize: 15, lineHeight: 22 },
+    subProgressTrack: {
+      marginTop: 10,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: colors.surface,
+      overflow: "hidden",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    subProgressFill: {
+      height: "100%",
+      borderRadius: 2,
+      backgroundColor: colors.accent,
+    },
+    subProgressMeta: {
+      marginTop: 6,
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "600",
+      fontVariant: ["tabular-nums"],
+    },
+    subProgressEmpty: {
+      marginTop: 8,
+      color: colors.muted,
+      fontSize: 12,
+    },
     chevron: { color: colors.muted, fontSize: 22, fontWeight: "300" },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: colors.bg },
     error: { color: colors.muted, textAlign: "center" },

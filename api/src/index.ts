@@ -128,7 +128,49 @@ async function build() {
     if (!topic) {
       return reply.status(404).send({ error: "Konu bulunamadı" });
     }
-    return { topicId: topic.id, title: topic.title, subtopics: topic.subtopics };
+    const ids = topic.subtopics.map((s) => s.id);
+    if (ids.length === 0) {
+      return {
+        topicId: topic.id,
+        title: topic.title,
+        subtopics: topic.subtopics.map((s) => ({
+          ...s,
+          informationCount: 0,
+          openQaCount: 0,
+          mcqCount: 0,
+        })),
+      };
+    }
+    const [infoCounts, qaCounts, mcqCounts] = await Promise.all([
+      prisma.informationContent.groupBy({
+        by: ["subtopicId"],
+        where: { subtopicId: { in: ids } },
+        _count: { _all: true },
+      }),
+      prisma.openQaContent.groupBy({
+        by: ["subtopicId"],
+        where: { subtopicId: { in: ids } },
+        _count: { _all: true },
+      }),
+      prisma.mcqContent.groupBy({
+        by: ["subtopicId"],
+        where: { subtopicId: { in: ids } },
+        _count: { _all: true },
+      }),
+    ]);
+    const mapI = new Map(infoCounts.map((r) => [r.subtopicId, r._count._all]));
+    const mapQ = new Map(qaCounts.map((r) => [r.subtopicId, r._count._all]));
+    const mapM = new Map(mcqCounts.map((r) => [r.subtopicId, r._count._all]));
+    return {
+      topicId: topic.id,
+      title: topic.title,
+      subtopics: topic.subtopics.map((s) => ({
+        ...s,
+        informationCount: mapI.get(s.id) ?? 0,
+        openQaCount: mapQ.get(s.id) ?? 0,
+        mcqCount: mapM.get(s.id) ?? 0,
+      })),
+    };
   });
 
   app.get("/subtopics/:subtopicId", async (request, reply) => {

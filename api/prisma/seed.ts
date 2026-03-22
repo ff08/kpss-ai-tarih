@@ -1,11 +1,6 @@
 import { createRequire } from "node:module";
 import { PrismaClient, type Prisma } from "@prisma/client";
-import {
-  generatedInformationRows,
-  generatedMcqRows,
-  generatedQaRows,
-  PER_SUBTOPIC,
-} from "./seed-generated";
+import { generatedMcqRows, generatedQaRows, PER_SUBTOPIC } from "./seed-generated";
 
 const require = createRequire(import.meta.url);
 const mufredatJson = require("./kpss-tarih-mufredat.json") as {
@@ -20,7 +15,6 @@ const mufredatJson = require("./kpss-tarih-mufredat.json") as {
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.informationContent.deleteMany();
   await prisma.openQaContent.deleteMany();
   await prisma.mcqContent.deleteMany();
   await prisma.subtopic.deleteMany();
@@ -47,7 +41,6 @@ async function main() {
     orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
   });
 
-  const infoRows: Prisma.InformationContentCreateManyInput[] = [];
   const qaRows: Prisma.OpenQaContentCreateManyInput[] = [];
   const mcqRows: Prisma.McqContentCreateManyInput[] = [];
   for (const s of flat) {
@@ -58,14 +51,6 @@ async function main() {
       topicId: s.topicId,
     };
     for (let n = 1; n <= PER_SUBTOPIC; n++) {
-      const inf = generatedInformationRows(row, n);
-      infoRows.push({
-        topicId: inf.topicId,
-        subtopicId: inf.subtopicId,
-        title: inf.title,
-        content: inf.content,
-        tag: inf.tag,
-      });
       const qa = generatedQaRows(row, n);
       qaRows.push({
         topicId: qa.topicId,
@@ -86,17 +71,15 @@ async function main() {
       });
     }
   }
-  await prisma.informationContent.createMany({ data: infoRows });
   await prisma.openQaContent.createMany({ data: qaRows });
   await prisma.mcqContent.createMany({ data: mcqRows });
 
   const topicCount = await prisma.topic.count();
   const subCount = await prisma.subtopic.count();
-  const infoCount = await prisma.informationContent.count();
   const qaCount = await prisma.openQaContent.count();
   const mcqCount = await prisma.mcqContent.count();
   console.log(
-    `Seed tamam: ${topicCount} konu, ${subCount} alt konu, ${infoCount} bilgi + ${qaCount} soru-cevap + ${mcqCount} çoktan seçmeli (alt konu başına ${PER_SUBTOPIC}×3).`,
+    `Seed tamam: ${topicCount} konu, ${subCount} alt konu, bilgi kartları JSON ile ayrı yüklenir; ${qaCount} soru-cevap + ${mcqCount} çoktan seçmeli (alt konu başına ${PER_SUBTOPIC}×2).`,
   );
 }
 

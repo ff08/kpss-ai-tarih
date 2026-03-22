@@ -1,5 +1,6 @@
 /**
- * Her alt konu için sabit sayıda (PER_SUBTOPIC) bilgi / soru-cevap / çoktan seçmeli üretir.
+ * Her alt konu için sabit sayıda (PER_SUBTOPIC) soru-cevap / çoktan seçmeli üretir.
+ * Bilgi kartları: `prisma/data/information-topic-1.json` + `scripts/import-information-topic-1.ts`
  */
 
 export const PER_SUBTOPIC = 10;
@@ -7,36 +8,6 @@ export const PER_SUBTOPIC = 10;
 function clip(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max - 1)}…`;
-}
-
-const INFO_TAGS = [
-  "Özet",
-  "KPSS",
-  "Tarih",
-  "Sınav",
-  "Kavram",
-  "Kronoloji",
-  "Bağlam",
-  "Analiz",
-  "Karşılaştırma",
-  "Hatırlat",
-] as const;
-
-function infoContent(subtopicTitle: string, topicTitle: string, n: number): string {
-  const t = (n - 1) % 10;
-  const blocks: string[] = [
-    `**${topicTitle}** ana başlığı altında **${clip(subtopicTitle, 90)}** konusu, müfredatta **kronoloji ve kavram** sorularında sık geçer.\n\n• Tarihleri **neden–sonuç** zinciriyle öğrenin.\n• Harita ve **coğrafi** bağlamı gözden geçirin.\n• Karıştırılan kavramları **tablo** ile ayırın.`,
-    `Bu alt konuda **öncelik**: temel tanımlar, **dönüm noktaları** ve sınavda çıkan **karşılaştırmalar**.\n\n• **${clip(subtopicTitle, 70)}** ile ilişkili kişi/yer/olay üçlüsünü eşleştirin.\n• Paragraf sorularında **ana fikir** ve **yardımcı fikir** ayrımı yapın.`,
-    `**Ezber değil bağlam:** ${clip(subtopicTitle, 80)} başlığında olayları **zincirleme** okuyun.\n\n• Önce genel çerçeve, sonra detay.\n• **KPSS** tipik olarak “hangisi **değildir**” ve “aşağıdakilerden hangisi **eşleşir**” sorularını sever.`,
-    `**Kaynak disiplin:** tarih + coğrafya + kültür bileşkesi. **${topicTitle}** içinde bu alt başlığın **yeri**ni cümleyle özetleyebilin.\n\n• Kronolojik çizelge çıkarın.\n• **Önem–önemsiz** ayrımını müfredat ipuçlarıyla yapın.`,
-    `**Sınav stratejisi:** ${clip(subtopicTitle, 75)} için 5 maddelik mini tekrar listesi tutun.\n\n1) Anahtar kavramlar\n2) Tarihler (gün/ay/yıl)\n3) Kişiler ve roller\n4) Sebep–sonuç\n5) Diğer dönemlerle **fark**`,
-    `**Yanlış şık tuzakları:** benzer isimli devletler, yakın tarihler, **yakın coğrafya**.\n\n• **${clip(subtopicTitle, 85)}** kapsamında “önce/sonra” ilişkisini netleştirin.\n• İsim eşleştirme sorularında **harf** ve **sıra** dikkat.`,
-    `**Medeniyet / kültür** boyutu: sanat, hukuk, ordu, ekonomi etiketlerinden hangileri bu alt konuda öne çıkıyor?\n\n• Her etiket için **bir örnek** yazın.\n• **${topicTitle}** ile bağlantıyı tek cümlede kurun.`,
-    `**Diplomasi ve savaş** bağlamı (varsa): antlaşmalar, **cephane**, cephe, **ateşkes** kelimelerini olaylarla ilişkilendirin.\n\n• ${clip(subtopicTitle, 80)} başlığında **özgün** vurgu nedir?\n• Kaynak kitaptaki **başlık altı** maddeleri kontrol edin.`,
-    `**Modern dünya bağlantısı** (gerekirse): geçmişten günümüze **miras** ve **etki** sorularına hazırlanın.\n\n• **${clip(subtopicTitle, 75)}** ile ilgili **tartışma** maddelerini not edin.`,
-    `**Özet tekrar:** 3 soru yazın ve yanıtlayın:\n\n1) Bu alt konunun **anahtar cümlesi** nedir?\n2) En çok karıştırılan **iki kavram** hangisi?\n3) Bir **neden–sonuç** örneği verin.\n\nKonu: **${clip(subtopicTitle, 70)}** (${topicTitle}).`,
-  ];
-  return blocks[t] ?? blocks[0];
 }
 
 const QA_FACE_HINTS = [
@@ -110,16 +81,6 @@ function mcqPayload(subtopicTitle: string, topicTitle: string, n: number): {
 }
 
 export type FlatSubtopic = { id: number; title: string; topicTitle: string; topicId: number };
-
-export function generatedInformationRows(s: FlatSubtopic, n: number) {
-  return {
-    topicId: s.topicId,
-    subtopicId: s.id,
-    title: `${n}. özet — ${clip(s.title, 75)}`,
-    content: infoContent(s.title, s.topicTitle, n),
-    tag: INFO_TAGS[(n - 1) % INFO_TAGS.length],
-  };
-}
 
 export function generatedQaRows(s: FlatSubtopic, n: number) {
   const { title, content } = qaPair(s.title, s.topicTitle, n);

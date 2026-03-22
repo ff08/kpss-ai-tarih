@@ -13,7 +13,14 @@ export type Topic = {
   mcqCount: number;
 };
 
-export type Subtopic = { id: number; title: string; sortOrder: number };
+export type Subtopic = {
+  id: number;
+  title: string;
+  sortOrder: number;
+  informationCount: number;
+  openQaCount: number;
+  mcqCount: number;
+};
 
 export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ";
 

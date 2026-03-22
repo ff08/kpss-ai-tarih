@@ -25,6 +25,7 @@ const CATEGORIES: { id: ContentIssueCategory; label: string }[] = [
 const DATASET_LABELS: Record<ContentDatasetKind, string> = {
   INFORMATION: "Bilgi kartı",
   OPEN_QA: "Soru–cevap",
+  PAST_EXAM_QA: "Çıkmış soru–cevap",
   MCQ: "Çoktan seçmeli",
 };
 

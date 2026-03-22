@@ -44,6 +44,7 @@ import { getResumeIndexForMode } from "../../lib/studyProgress";
 const MODE_LABELS: Record<CardKind, string> = {
   INFORMATION: "Bilgi kartları",
   OPEN_QA: "Soru–cevap",
+  PAST_EXAM_QA: "Çıkmış soru–cevap",
   MCQ: "Çoktan seçmeli",
 };
 
@@ -199,7 +200,7 @@ export default function CardDeckScreen() {
   }, [mode, mcqPaused, index]);
 
   useEffect(() => {
-    if (mode !== "INFORMATION" && mode !== "OPEN_QA" && mode !== "MCQ") return;
+    if (!mode) return;
     if (cards.length === 0) return;
     const total = cards.length;
     const pos = Math.min(index + 1, total);
@@ -383,6 +384,18 @@ export default function CardDeckScreen() {
               <View style={styles.modeRowTexts}>
                 <Text style={styles.modeRowTitle}>Çoktan seçmeli</Text>
                 <Text style={styles.modeRowSub}>Şıklardan birini seçin, doğru/yanlış görün</Text>
+              </View>
+            </View>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.modeRow, pressed && styles.modeRowPressed]}
+            onPress={() => setMode("PAST_EXAM_QA")}
+          >
+            <View style={styles.modeRowInner}>
+              <Ionicons name="time-outline" size={22} color={colors.accent} style={styles.modeIcon} />
+              <View style={styles.modeRowTexts}>
+                <Text style={styles.modeRowTitle}>Çıkmış soru–cevap</Text>
+                <Text style={styles.modeRowSub}>Son yılların soru tarzını kart formatında tekrar edin</Text>
               </View>
             </View>
           </Pressable>
@@ -578,6 +591,9 @@ export default function CardDeckScreen() {
                 {mode === "OPEN_QA" ? (
                   <FlipQaCard question={item.title} answer={item.content} resetKey={item.id} hint={item.hint} />
                 ) : null}
+                {mode === "PAST_EXAM_QA" ? (
+                  <FlipQaCard question={item.title} answer={item.content} resetKey={item.id} hint={item.hint} />
+                ) : null}
                 {mode === "MCQ" ? (
                   <McqSlide
                     item={item}
@@ -594,7 +610,7 @@ export default function CardDeckScreen() {
         )}
       </View>
       <Text style={styles.swipeHint}>
-        {mode === "OPEN_QA"
+        {mode === "OPEN_QA" || mode === "PAST_EXAM_QA"
           ? "Dikey kaydırın; cevap için karta dokunun"
           : mode === "MCQ"
             ? "Her soru için 1 dk; dikey kaydırarak ilerleyin"

@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const contentIssueBodySchema = z.object({
   topicId: z.number().int().positive(),
   subtopicId: z.number().int().positive(),
-  datasetKind: z.enum(["INFORMATION", "OPEN_QA", "MCQ"]),
+  datasetKind: z.enum(["INFORMATION", "OPEN_QA", "PAST_EXAM_QA", "MCQ"]),
   contentRowId: z.number().int().positive(),
   category: z.enum(["WRONG_INFO", "CONFLICTING_INFO", "MISSING_INFO"]),
   /** Aynı cihaz/uygulama örneği için kalıcı UUID (tekrar bildirimi engellemek) */
@@ -53,6 +53,12 @@ async function verifyContentRowExists(
       select: { id: true },
     }));
   }
+  if (datasetKind === "PAST_EXAM_QA") {
+    return !!(await prisma.pastExamQaContent.findFirst({
+      where: { id: contentRowId, subtopicId },
+      select: { id: true },
+    }));
+  }
   return !!(await prisma.mcqContent.findFirst({
     where: { id: contentRowId, subtopicId },
     select: { id: true },
@@ -82,11 +88,12 @@ async function build() {
       subtopicCount: number;
       informationCount: number;
       openQaCount: number;
+      pastExamQaCount: number;
       mcqCount: number;
     };
     const stats = new Map<number, TopicStats>();
     for (const t of topics) {
-      stats.set(t.id, { subtopicCount: 0, informationCount: 0, openQaCount: 0, mcqCount: 0 });
+      stats.set(t.id, { subtopicCount: 0, informationCount: 0, openQaCount: 0, pastExamQaCount: 0, mcqCount: 0 });
     }
     for (const s of subtopics) {
       const row = stats.get(s.topicId);
@@ -103,19 +110,25 @@ async function build() {
             subtopicCount: s.subtopicCount,
             informationCount: s.informationCount,
             openQaCount: s.openQaCount,
+            pastExamQaCount: s.pastExamQaCount,
             mcqCount: s.mcqCount,
           };
         }),
       };
     }
 
-    const [infoCounts, qaCounts, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, pastExamQaCounts, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: subtopicIds } },
         _count: { _all: true },
       }),
       prisma.openQaContent.groupBy({
+        by: ["subtopicId"],
+        where: { subtopicId: { in: subtopicIds } },
+        _count: { _all: true },
+      }),
+      prisma.pastExamQaContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: subtopicIds } },
         _count: { _all: true },
@@ -129,7 +142,7 @@ async function build() {
 
     function addCounts(
       rows: { subtopicId: number; _count: { _all: number } }[],
-      key: "informationCount" | "openQaCount" | "mcqCount",
+      key: "informationCount" | "openQaCount" | "pastExamQaCount" | "mcqCount",
     ) {
       for (const row of rows) {
         const topicId = subtopicToTopic.get(row.subtopicId);
@@ -141,6 +154,7 @@ async function build() {
     }
     addCounts(infoCounts, "informationCount");
     addCounts(qaCounts, "openQaCount");
+    addCounts(pastExamQaCounts, "pastExamQaCount");
     addCounts(mcqCounts, "mcqCount");
 
     return {
@@ -151,6 +165,7 @@ async function build() {
           subtopicCount: s.subtopicCount,
           informationCount: s.informationCount,
           openQaCount: s.openQaCount,
+          pastExamQaCount: s.pastExamQaCount,
           mcqCount: s.mcqCount,
         };
       }),
@@ -181,17 +196,23 @@ async function build() {
           ...s,
           informationCount: 0,
           openQaCount: 0,
+          pastExamQaCount: 0,
           mcqCount: 0,
         })),
       };
     }
-    const [infoCounts, qaCounts, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, pastExamQaCounts, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: ids } },
         _count: { _all: true },
       }),
       prisma.openQaContent.groupBy({
+        by: ["subtopicId"],
+        where: { subtopicId: { in: ids } },
+        _count: { _all: true },
+      }),
+      prisma.pastExamQaContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: ids } },
         _count: { _all: true },
@@ -204,6 +225,7 @@ async function build() {
     ]);
     const mapI = new Map(infoCounts.map((r) => [r.subtopicId, r._count._all]));
     const mapQ = new Map(qaCounts.map((r) => [r.subtopicId, r._count._all]));
+    const mapP = new Map(pastExamQaCounts.map((r) => [r.subtopicId, r._count._all]));
     const mapM = new Map(mcqCounts.map((r) => [r.subtopicId, r._count._all]));
     return {
       topicId: topic.id,
@@ -212,6 +234,7 @@ async function build() {
         ...s,
         informationCount: mapI.get(s.id) ?? 0,
         openQaCount: mapQ.get(s.id) ?? 0,
+        pastExamQaCount: mapP.get(s.id) ?? 0,
         mcqCount: mapM.get(s.id) ?? 0,
       })),
     };
@@ -245,7 +268,7 @@ async function build() {
       return reply.status(404).send({ error: "Alt konu bulunamadı" });
     }
     const q = request.query as { kind?: string };
-    const allowed = ["INFORMATION", "OPEN_QA", "MCQ"] as const;
+    const allowed = ["INFORMATION", "OPEN_QA", "PAST_EXAM_QA", "MCQ"] as const;
     const kind = allowed.includes(q.kind as (typeof allowed)[number]) ? (q.kind as (typeof allowed)[number]) : "INFORMATION";
 
     const sub = await prisma.subtopic.findUnique({
@@ -302,6 +325,30 @@ async function build() {
           content: c.content,
           tag: c.tag,
           hint: c.hint,
+        })),
+      };
+    }
+
+    if (kind === "PAST_EXAM_QA") {
+      const rows = await prisma.pastExamQaContent.findMany({
+        where: { subtopicId: subtopicIdNum },
+        orderBy: [{ examYear: "desc" }, { id: "asc" }],
+        select: { id: true, examYear: true, source: true, title: true, content: true, tag: true, hint: true },
+      });
+      return {
+        subtopicId: sub.id,
+        title: sub.title,
+        topicId: sub.topic.id,
+        topicTitle: sub.topic.title,
+        kind,
+        cards: rows.map((c) => ({
+          id: c.id,
+          kind: "PAST_EXAM_QA" as const,
+          difficulty: null,
+          title: c.title,
+          content: c.content,
+          tag: c.tag,
+          hint: c.hint ?? `${c.source ?? "KPSS"} ${c.examYear}`,
         })),
       };
     }

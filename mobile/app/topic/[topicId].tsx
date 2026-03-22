@@ -87,6 +87,7 @@ export default function SubtopicsScreen() {
           const { percentDone, percentRemaining, hasContent } = getOverall(item.id, {
             informationCount: item.informationCount ?? 0,
             openQaCount: item.openQaCount ?? 0,
+            pastExamQaCount: item.pastExamQaCount ?? 0,
             mcqCount: item.mcqCount ?? 0,
           });
           return (

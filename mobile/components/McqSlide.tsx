@@ -1,22 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { parseMcqPayload, type QuestionDifficulty, type StudyCard } from "../lib/api";
-import type { ColorPalette } from "../constants/theme";
+import { parseMcqPayload, type StudyCard } from "../lib/api";
 import { useTheme } from "../contexts/ThemeContext";
-
-function mcqCardBackground(colors: ColorPalette, difficulty: QuestionDifficulty | null | undefined): string {
-  if (!difficulty) return colors.card;
-  switch (difficulty) {
-    case "EASY":
-      return colors.mcqSlideBgEasy;
-    case "MEDIUM":
-      return colors.mcqSlideBgMedium;
-    case "HARD":
-      return colors.mcqSlideBgHard;
-    default:
-      return colors.card;
-  }
-}
 
 export function McqSlide({
   item,
@@ -46,7 +31,7 @@ export function McqSlide({
     payload = parseMcqPayload(item.content);
   } catch {
     return (
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={styles.card}>
         <Text style={styles.error}>Çoktan seçmeli verisi okunamadı</Text>
       </View>
     );
@@ -67,10 +52,8 @@ export function McqSlide({
     }
   }
 
-  const cardBg = mcqCardBackground(colors, item.difficulty);
-
   return (
-    <View style={[styles.card, { backgroundColor: cardBg }]}>
+    <View style={styles.card}>
       <Text style={styles.mcqCardTitle}>{item.title}</Text>
       <ScrollView
         style={styles.mcqOptionsScroll}
@@ -111,7 +94,7 @@ export function McqSlide({
   );
 }
 
-function createMcqSlideStyles(colors: ColorPalette) {
+function createMcqSlideStyles(colors: ReturnType<typeof useTheme>["colors"]) {
   return StyleSheet.create({
     card: {
       flex: 1,

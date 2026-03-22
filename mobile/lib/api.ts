@@ -10,6 +10,7 @@ export type Topic = {
   subtopicCount: number;
   informationCount: number;
   openQaCount: number;
+  pastExamQaCount: number;
   mcqCount: number;
 };
 
@@ -19,12 +20,13 @@ export type Subtopic = {
   sortOrder: number;
   informationCount: number;
   openQaCount: number;
+  pastExamQaCount: number;
   mcqCount: number;
 };
 
-export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ";
+export type CardKind = "INFORMATION" | "OPEN_QA" | "PAST_EXAM_QA" | "MCQ";
 
-export type ContentDatasetKind = "INFORMATION" | "OPEN_QA" | "MCQ";
+export type ContentDatasetKind = "INFORMATION" | "OPEN_QA" | "PAST_EXAM_QA" | "MCQ";
 
 export type ContentIssueCategory = "WRONG_INFO" | "CONFLICTING_INFO" | "MISSING_INFO";
 

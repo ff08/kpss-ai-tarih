@@ -28,8 +28,7 @@ export function WordGameCard({ question, answer, shuffledLetters, hint, onSolved
   const current = selected.map((i) => shuffledLetters[i] ?? "").join("");
   const solved = status === "ok";
 
-  const onPick = (index: number) => {
-    if (solved || selected.includes(index)) return;
+  const applyPick = (index: number) => {
     const next = [...selected, index];
     setSelected(next);
     const guess = next.map((i) => shuffledLetters[i] ?? "").join("");
@@ -43,6 +42,32 @@ export function WordGameCard({ question, answer, shuffledLetters, hint, onSolved
       return;
     }
     setStatus("wrong");
+  };
+
+  const onPick = (index: number) => {
+    if (solved || selected.includes(index)) return;
+    applyPick(index);
+  };
+
+  const giveLetter = () => {
+    if (solved) return;
+    if (selected.length >= answerUpper.length) return;
+    const usedSet = new Set(selected);
+    const nextPos = selected.length;
+    const targetChar = answerUpper[nextPos];
+    const candidates: number[] = [];
+    for (let i = 0; i < shuffledLetters.length; i += 1) {
+      if (usedSet.has(i)) continue;
+      if ((shuffledLetters[i] ?? "") === targetChar) candidates.push(i);
+    }
+    const fallback: number[] = [];
+    for (let i = 0; i < shuffledLetters.length; i += 1) {
+      if (!usedSet.has(i)) fallback.push(i);
+    }
+    const pool = candidates.length > 0 ? candidates : fallback;
+    if (pool.length === 0) return;
+    const picked = pool[Math.floor(Math.random() * pool.length)]!;
+    applyPick(picked);
   };
 
   const resetGuess = () => {
@@ -80,6 +105,9 @@ export function WordGameCard({ question, answer, shuffledLetters, hint, onSolved
         </Pressable>
         <Pressable style={styles.actionBtn} onPress={() => setShowHint((v) => !v)}>
           <Text style={styles.actionText}>Ipucu</Text>
+        </Pressable>
+        <Pressable style={styles.actionBtn} onPress={giveLetter} disabled={solved}>
+          <Text style={styles.actionText}>Harf al</Text>
         </Pressable>
       </View>
       {showHint ? <Text style={styles.hint}>{hint || "Ipuclari bu kartta tanimli degil."}</Text> : null}

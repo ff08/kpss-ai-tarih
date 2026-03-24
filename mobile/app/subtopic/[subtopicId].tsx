@@ -57,6 +57,35 @@ const EMPTY_MODE_COUNTS: Record<CardKind, number> = {
 };
 
 const MCQ_SECONDS_PER_QUESTION = 60;
+const WORD_GAME_DUMMY_CARDS: StudyCard[] = [
+  {
+    id: "wg-dummy-1",
+    kind: "WORD_GAME",
+    difficulty: null,
+    title: "Osmanli Devleti'nin yonetim merkezinin adi nedir?",
+    content: JSON.stringify({ answer: "PAYITAHT", shuffledLetters: ["T", "H", "Y", "A", "T", "I", "P", "A"] }),
+    tag: "Dummy",
+    hint: "Baskent anlaminda kullanilir",
+  },
+  {
+    id: "wg-dummy-2",
+    kind: "WORD_GAME",
+    difficulty: null,
+    title: "Tarihte olaylari zaman sirasina koyma yontemi nedir?",
+    content: JSON.stringify({ answer: "KRONOLOJI", shuffledLetters: ["J", "R", "O", "K", "N", "O", "L", "O", "I"] }),
+    tag: "Dummy",
+    hint: "Zaman bilimi ile ilgilidir",
+  },
+  {
+    id: "wg-dummy-3",
+    kind: "WORD_GAME",
+    difficulty: null,
+    title: "Kaynaklarin guvenilirligini inceleme islemine ne denir?",
+    content: JSON.stringify({ answer: "TENKIT", shuffledLetters: ["K", "I", "T", "T", "N", "E"] }),
+    tag: "Dummy",
+    hint: "Kaynak elestirisi",
+  },
+];
 
 function toRouteParamNumber(v: string | string[] | undefined): number {
   const raw = Array.isArray(v) ? v[0] : v;
@@ -69,6 +98,14 @@ function formatMcqTime(seconds: number): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function tryParseWordGamePayload(content: string): { answer: string; shuffledLetters: string[] } | null {
+  try {
+    return parseWordGamePayload(content);
+  } catch {
+    return null;
+  }
 }
 
 export default function CardDeckScreen() {
@@ -232,11 +269,13 @@ export default function CardDeckScreen() {
       setTopicTitle(data.topicTitle);
       setSubTitle(data.title);
       setTopicId(data.topicId);
-      setCards(data.cards);
-      setModeCounts((prev) => ({ ...prev, [mode]: data.cards.length }));
-      const resume = getResumeIndexForMode(getSubtopicRef.current(subtopicIdNum), mode, data.cards.length);
+      const nextCards =
+        mode === "WORD_GAME" && data.cards.length === 0 ? WORD_GAME_DUMMY_CARDS : data.cards;
+      setCards(nextCards);
+      setModeCounts((prev) => ({ ...prev, [mode]: nextCards.length }));
+      const resume = getResumeIndexForMode(getSubtopicRef.current(subtopicIdNum), mode, nextCards.length);
       setIndex(resume);
-      const total = data.cards.length;
+      const total = nextCards.length;
       if (total > 0) {
         deckProgressAnim.setValue(Math.min(1, (resume + 1) / total));
       } else {
@@ -525,7 +564,11 @@ export default function CardDeckScreen() {
         <ScreenHeader title={screenTitle} tagline={APP_TAGLINE} subtitle={headerSubtitle} leftSlot={modLeft} rightSlot={null} />
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>Bu modda içerik yok</Text>
-          <Text style={styles.emptySub}>Veritabanında bu alt konu için {MODE_LABELS[mode]} kaydı bulunmuyor.</Text>
+          <Text style={styles.emptySub}>
+            {mode === "WORD_GAME"
+              ? "Gecici ornek bulmacalar gosteriliyor. Gercek veriler hazir oldugunda otomatik degisecek."
+              : `Veritabanında bu alt konu için ${MODE_LABELS[mode]} kaydı bulunmuyor.`}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -673,12 +716,20 @@ export default function CardDeckScreen() {
                   />
                 ) : null}
                 {mode === "WORD_GAME" ? (
-                  <WordGameCard
-                    question={item.title}
-                    answer={parseWordGamePayload(item.content).answer}
-                    shuffledLetters={parseWordGamePayload(item.content).shuffledLetters}
-                    hint={item.hint}
-                  />
+                  (() => {
+                    const payload = tryParseWordGamePayload(item.content);
+                    if (!payload) {
+                      return <Text style={styles.error}>Kelime oyunu kart verisi gecersiz.</Text>;
+                    }
+                    return (
+                      <WordGameCard
+                        question={item.title}
+                        answer={payload.answer}
+                        shuffledLetters={payload.shuffledLetters}
+                        hint={item.hint}
+                      />
+                    );
+                  })()
                 ) : null}
               </View>
             )}

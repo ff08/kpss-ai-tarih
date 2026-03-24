@@ -15,6 +15,7 @@ const mufredatJson = require("./kpss-tarih-mufredat.json") as {
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.wordGameContent.deleteMany();
   await prisma.openQaContent.deleteMany();
   await prisma.mcqContent.deleteMany();
   await prisma.subtopic.deleteMany();
@@ -77,9 +78,10 @@ async function main() {
   const topicCount = await prisma.topic.count();
   const subCount = await prisma.subtopic.count();
   const qaCount = await prisma.openQaContent.count();
+  const wordGameCount = await prisma.wordGameContent.count();
   const mcqCount = await prisma.mcqContent.count();
   console.log(
-    `Seed tamam: ${topicCount} konu, ${subCount} alt konu, bilgi kartları JSON ile ayrı yüklenir; ${qaCount} soru-cevap + ${mcqCount} çoktan seçmeli (alt konu başına ${PER_SUBTOPIC}×2).`,
+    `Seed tamam: ${topicCount} konu, ${subCount} alt konu, bilgi kartları JSON ile ayrı yüklenir; ${qaCount} soru-cevap + ${wordGameCount} kelime oyunu + ${mcqCount} çoktan seçmeli.`,
   );
 }
 

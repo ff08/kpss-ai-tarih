@@ -30,12 +30,11 @@ function parsePositiveIntParam(raw: string): number | null {
   return n;
 }
 
-function extractWordGameAnswer(raw: string): string | null {
-  const firstLine = raw.split("\n")[0]?.trim() ?? "";
-  const cleaned = firstLine.replace(/^[^\\p{L}]+|[^\\p{L}]+$/gu, "");
+function normalizeWordGameAnswer(raw: string): string | null {
+  const cleaned = raw.trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "");
   if (!cleaned) return null;
   if (cleaned.length < 3 || cleaned.length > 12) return null;
-  if (!/^[\\p{L}]+$/u.test(cleaned)) return null;
+  if (!/^[\p{L}]+$/u.test(cleaned)) return null;
   return cleaned.toLocaleUpperCase("tr-TR");
 }
 
@@ -77,7 +76,7 @@ async function verifyContentRowExists(
     }));
   }
   if (datasetKind === "WORD_GAME") {
-    return !!(await prisma.openQaContent.findFirst({
+    return !!(await prisma.wordGameContent.findFirst({
       where: { id: contentRowId, subtopicId },
       select: { id: true },
     }));
@@ -140,7 +139,7 @@ async function build() {
       };
     }
 
-    const [infoCounts, qaCounts, wordGameRows, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, wordGameCounts, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: subtopicIds } },
@@ -151,9 +150,10 @@ async function build() {
         where: { subtopicId: { in: subtopicIds } },
         _count: { _all: true },
       }),
-      prisma.openQaContent.findMany({
+      prisma.wordGameContent.groupBy({
+        by: ["subtopicId"],
         where: { subtopicId: { in: subtopicIds } },
-        select: { subtopicId: true, content: true },
+        _count: { _all: true },
       }),
       prisma.mcqContent.groupBy({
         by: ["subtopicId"],
@@ -161,12 +161,6 @@ async function build() {
         _count: { _all: true },
       }),
     ]);
-    const wordGameCountsBySubtopic = new Map<number, number>();
-    for (const row of wordGameRows) {
-      if (!extractWordGameAnswer(row.content)) continue;
-      wordGameCountsBySubtopic.set(row.subtopicId, (wordGameCountsBySubtopic.get(row.subtopicId) ?? 0) + 1);
-    }
-
     function addCounts(
       rows: { subtopicId: number; _count: { _all: number } }[],
       key: "informationCount" | "openQaCount" | "wordGameCount" | "mcqCount",
@@ -181,10 +175,7 @@ async function build() {
     }
     addCounts(infoCounts, "informationCount");
     addCounts(qaCounts, "openQaCount");
-    addCounts(
-      [...wordGameCountsBySubtopic.entries()].map(([subtopicId, count]) => ({ subtopicId, _count: { _all: count } })),
-      "wordGameCount",
-    );
+    addCounts(wordGameCounts, "wordGameCount");
     addCounts(mcqCounts, "mcqCount");
 
     return {
@@ -195,7 +186,7 @@ async function build() {
           subtopicCount: s.subtopicCount,
           informationCount: s.informationCount,
           openQaCount: s.openQaCount,
-            wordGameCount: s.wordGameCount,
+          wordGameCount: s.wordGameCount,
           mcqCount: s.mcqCount,
         };
       }),
@@ -231,7 +222,7 @@ async function build() {
         })),
       };
     }
-    const [infoCounts, qaCounts, wordGameRows, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, wordGameCounts, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: ids } },
@@ -242,9 +233,10 @@ async function build() {
         where: { subtopicId: { in: ids } },
         _count: { _all: true },
       }),
-      prisma.openQaContent.findMany({
+      prisma.wordGameContent.groupBy({
+        by: ["subtopicId"],
         where: { subtopicId: { in: ids } },
-        select: { subtopicId: true, content: true },
+        _count: { _all: true },
       }),
       prisma.mcqContent.groupBy({
         by: ["subtopicId"],
@@ -252,14 +244,9 @@ async function build() {
         _count: { _all: true },
       }),
     ]);
-    const wordGameCountsBySubtopic = new Map<number, number>();
-    for (const row of wordGameRows) {
-      if (!extractWordGameAnswer(row.content)) continue;
-      wordGameCountsBySubtopic.set(row.subtopicId, (wordGameCountsBySubtopic.get(row.subtopicId) ?? 0) + 1);
-    }
     const mapI = new Map(infoCounts.map((r) => [r.subtopicId, r._count._all]));
     const mapQ = new Map(qaCounts.map((r) => [r.subtopicId, r._count._all]));
-    const mapW = wordGameCountsBySubtopic;
+    const mapW = new Map(wordGameCounts.map((r) => [r.subtopicId, r._count._all]));
     const mapM = new Map(mcqCounts.map((r) => [r.subtopicId, r._count._all]));
     return {
       topicId: topic.id,
@@ -287,13 +274,12 @@ async function build() {
     if (!sub) {
       return reply.status(404).send({ error: "Alt konu bulunamadı" });
     }
-    const [informationCount, openQaCount, wordGameRows, mcqCount] = await Promise.all([
+    const [informationCount, openQaCount, wordGameCount, mcqCount] = await Promise.all([
       prisma.informationContent.count({ where: { subtopicId: sub.id } }),
       prisma.openQaContent.count({ where: { subtopicId: sub.id } }),
-      prisma.openQaContent.findMany({ where: { subtopicId: sub.id }, select: { content: true } }),
+      prisma.wordGameContent.count({ where: { subtopicId: sub.id } }),
       prisma.mcqContent.count({ where: { subtopicId: sub.id } }),
     ]);
-    const wordGameCount = wordGameRows.reduce((acc, row) => (extractWordGameAnswer(row.content) ? acc + 1 : acc), 0);
     return {
       subtopicId: sub.id,
       title: sub.title,
@@ -375,25 +361,25 @@ async function build() {
     }
 
     if (kind === "WORD_GAME") {
-      const rows = await prisma.openQaContent.findMany({
+      const rows = await prisma.wordGameContent.findMany({
         where: { subtopicId: subtopicIdNum },
         orderBy: { id: "asc" },
-        select: { id: true, title: true, content: true, hint: true },
+        select: { id: true, question: true, answer: true, hint: true, tag: true },
       });
       const cards = rows
         .map((c) => {
-          const answer = extractWordGameAnswer(c.content);
+          const answer = normalizeWordGameAnswer(c.answer);
           if (!answer) return null;
           return {
             id: c.id,
             kind: "WORD_GAME" as const,
             difficulty: null,
-            title: c.title,
+            title: c.question,
             content: JSON.stringify({
               answer,
               shuffledLetters: shuffleLetters(answer),
             }),
-            tag: null,
+            tag: c.tag ?? null,
             hint: c.hint,
           };
         })

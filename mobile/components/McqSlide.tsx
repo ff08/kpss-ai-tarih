@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { parseMcqPayload, type StudyCard } from "../lib/api";
 import { useTheme } from "../contexts/ThemeContext";
@@ -7,24 +7,19 @@ export function McqSlide({
   item,
   isActive,
   timeUp,
+  selected,
+  onSelect,
   onAnswer,
 }: {
   item: StudyCard;
   isActive: boolean;
   timeUp: boolean;
+  selected: number | null;
+  onSelect: (index: number) => void;
   onAnswer: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createMcqSlideStyles(colors), [colors]);
-  const [selected, setSelected] = useState<number | null>(null);
-
-  useEffect(() => {
-    setSelected(null);
-  }, [item.id]);
-
-  useEffect(() => {
-    if (!isActive) setSelected(null);
-  }, [isActive]);
 
   let payload: ReturnType<typeof parseMcqPayload>;
   try {
@@ -38,17 +33,16 @@ export function McqSlide({
   }
 
   const showReveal = isActive && (selected !== null || timeUp);
-  const correctLetter = String.fromCharCode(65 + payload.correctIndex);
-  const correctOptionText = payload.options[payload.correctIndex];
+  const explanation = item.hint?.trim() || "Bu soru için açıklama bulunmuyor.";
 
   let feedback: string | null = null;
   if (showReveal) {
     if (selected !== null && selected === payload.correctIndex) {
-      feedback = "Doğru";
+      feedback = `Doğru. ${explanation}`;
     } else if (selected !== null && selected !== payload.correctIndex) {
-      feedback = `Yanlış. Doğru şık: ${correctLetter}) ${correctOptionText}`;
+      feedback = explanation;
     } else if (selected === null && timeUp) {
-      feedback = `Süre doldu. Doğru şık: ${correctLetter}) ${correctOptionText}`;
+      feedback = explanation;
     }
   }
 
@@ -70,7 +64,7 @@ export function McqSlide({
               key={i}
               onPress={() => {
                 if (!isActive || locked) return;
-                setSelected(i);
+                onSelect(i);
                 onAnswer();
               }}
               style={[

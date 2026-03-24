@@ -27,6 +27,7 @@ export function WordGameCard({ question, answer, shuffledLetters, hint, onSolved
 
   const current = selected.map((i) => shuffledLetters[i] ?? "").join("");
   const solved = status === "ok";
+  const slotText = Array.from({ length: answerUpper.length }, (_, i) => current[i] ?? "_").join("  ");
 
   const applyPick = (index: number) => {
     const next = [...selected, index];
@@ -78,9 +79,8 @@ export function WordGameCard({ question, answer, shuffledLetters, hint, onSolved
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{question}</Text>
-      <Text style={styles.label}>Kelimeyi bul</Text>
       <View style={styles.answerBox}>
-        <Text style={styles.answerText}>{current || "_".repeat(answerUpper.length)}</Text>
+        <Text style={styles.answerText}>{slotText}</Text>
       </View>
       <View style={styles.letterGrid}>
         {shuffledLetters.map((ch, idx) => {
@@ -127,8 +127,8 @@ function createStyles(colors: ColorPalette) {
       justifyContent: "center",
     },
     title: { color: colors.text, fontSize: 20, fontWeight: "700", lineHeight: 28 },
-    label: { color: colors.muted, marginTop: 12, marginBottom: 10, fontSize: 13, fontWeight: "600" },
     answerBox: {
+      marginTop: 12,
       minHeight: 52,
       borderRadius: 12,
       borderWidth: 1,
@@ -138,7 +138,7 @@ function createStyles(colors: ColorPalette) {
       justifyContent: "center",
       paddingHorizontal: 12,
     },
-    answerText: { color: colors.text, fontSize: 20, fontWeight: "700", letterSpacing: 1.2 },
+    answerText: { color: colors.text, fontSize: 20, fontWeight: "700", letterSpacing: 1.6 },
     letterGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
     letter: {
       minWidth: 44,

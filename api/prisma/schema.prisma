@@ -106,6 +106,7 @@ model McqContent {
   difficulty QuestionDifficulty
   title      String
   content    String             @db.Text
+  explanation String?           @db.Text
   tag        String?
   createdAt  DateTime           @default(now())
 

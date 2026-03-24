@@ -95,6 +95,8 @@ const RandomFeedRow = memo(
               item={item.card}
               isActive={visibleIndex === itemIndex}
               timeUp={mcqTimeLeft === 0 && isMcqActive}
+              selected={null}
+              onSelect={() => {}}
               onAnswer={onMcqAnswer}
             />
           ) : null}

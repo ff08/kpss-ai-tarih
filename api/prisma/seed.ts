@@ -68,6 +68,7 @@ async function main() {
         difficulty: mcq.difficulty,
         title: mcq.title,
         content: mcq.content,
+        explanation: mcq.explanation,
         tag: mcq.tag,
       });
     }

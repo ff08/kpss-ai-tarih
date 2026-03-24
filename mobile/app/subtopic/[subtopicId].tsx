@@ -40,6 +40,7 @@ import type { ColorPalette } from "../../constants/theme";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { loadReportedKeySet, markCardReported, reportKey } from "../../lib/contentReportCache";
+import { getMcqAnswerFromMap, loadMcqAnswers, saveMcqAnswer, type McqAnswerMap } from "../../lib/mcqAnswerCache";
 import { getReporterClientId } from "../../lib/reporterClientId";
 import { getResumeIndexForMode } from "../../lib/studyProgress";
 
@@ -171,6 +172,7 @@ export default function CardDeckScreen() {
   const saveScrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deckEpoch, setDeckEpoch] = useState(0);
   const [reportedKeySet, setReportedKeySet] = useState<Set<string>>(() => new Set());
+  const [mcqAnswers, setMcqAnswers] = useState<McqAnswerMap>({});
   const getSubtopicRef = useRef(getSubtopic);
   const indexRef = useRef(0);
   const modeRef = useRef<CardKind | null>(null);
@@ -200,6 +202,16 @@ export default function CardDeckScreen() {
     let cancelled = false;
     void loadReportedKeySet().then((set) => {
       if (!cancelled) setReportedKeySet(set);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadMcqAnswers().then((map) => {
+      if (!cancelled) setMcqAnswers(map);
     });
     return () => {
       cancelled = true;
@@ -370,8 +382,20 @@ export default function CardDeckScreen() {
   }, [mode, cards.length, subtopicIdNum, index, recordScroll]);
 
   const listExtraData = useMemo(
-    () => ({ mode, index, mcqTimeLeft, deckEpoch, reportedKeySet }),
-    [mode, index, mcqTimeLeft, deckEpoch, reportedKeySet],
+    () => ({ mode, index, mcqTimeLeft, deckEpoch, reportedKeySet, mcqAnswers }),
+    [mode, index, mcqTimeLeft, deckEpoch, reportedKeySet, mcqAnswers],
+  );
+
+  const handleMcqSelect = useCallback(
+    (cardId: string | number, selectedIndex: number) => {
+      if (!Number.isFinite(subtopicIdNum)) return;
+      setMcqAnswers((prev) => {
+        const next = { ...prev, [`${subtopicIdNum}:${String(cardId)}`]: selectedIndex };
+        return next;
+      });
+      void saveMcqAnswer(subtopicIdNum, cardId, selectedIndex);
+    },
+    [subtopicIdNum],
   );
 
   const currentCardReported = useMemo(() => {
@@ -712,6 +736,8 @@ export default function CardDeckScreen() {
                     item={item}
                     isActive={index === itemIndex}
                     timeUp={mcqTimeLeft === 0 && index === itemIndex}
+                    selected={Number.isFinite(subtopicIdNum) ? getMcqAnswerFromMap(mcqAnswers, subtopicIdNum, item.id) : null}
+                    onSelect={(selectedIndex) => handleMcqSelect(item.id, selectedIndex)}
                     onAnswer={() => setMcqPaused(true)}
                   />
                 ) : null}

@@ -1,0 +1,2 @@
+ALTER TABLE "McqContent"
+ADD COLUMN IF NOT EXISTS "explanation" TEXT;

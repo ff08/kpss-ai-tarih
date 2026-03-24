@@ -397,7 +397,7 @@ async function build() {
     const rows = await prisma.mcqContent.findMany({
       where: { subtopicId: subtopicIdNum },
       orderBy: { id: "asc" },
-      select: { id: true, difficulty: true, title: true, content: true, tag: true },
+      select: { id: true, difficulty: true, title: true, content: true, explanation: true, tag: true },
     });
     return {
       subtopicId: sub.id,
@@ -412,7 +412,7 @@ async function build() {
         title: c.title,
         content: c.content,
         tag: c.tag,
-        hint: null,
+        hint: c.explanation,
       })),
     };
   });

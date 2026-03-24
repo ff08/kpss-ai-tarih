@@ -57,6 +57,7 @@ function mcqPayload(subtopicTitle: string, topicTitle: string, n: number): {
   title: string;
   options: string[];
   correctIndex: number;
+  explanation: string;
   difficulty: "EASY" | "MEDIUM" | "HARD";
 } {
   const correctIndex = (n - 1) % 4;
@@ -77,7 +78,10 @@ function mcqPayload(subtopicTitle: string, topicTitle: string, n: number): {
   }
   const title = `Aşağıdaki ifadelerden hangisi **${clip(subtopicTitle, 72)}** alt konusunun müfredattaki yeriyle en uyumludur?`;
   const difficulty = (["EASY", "MEDIUM", "HARD"] as const)[(n - 1) % 3];
-  return { title, options, correctIndex, difficulty };
+  const explanation =
+    `Doğru seçenek, ${clip(subtopicTitle, 68)} alt konusunu ${clip(topicTitle, 46)} bağlamında doğru konumlandırır. ` +
+    "Yanlış seçenekler ise konuyu KPSS-Tarih müfredatı dışı dönem/bağlamlarla eşleştirerek hatalı çıkarım üretir.";
+  return { title, options, correctIndex, explanation, difficulty };
 }
 
 export type FlatSubtopic = { id: number; title: string; topicTitle: string; topicId: number };
@@ -103,6 +107,7 @@ export function generatedMcqRows(s: FlatSubtopic, n: number) {
     difficulty: m.difficulty,
     title: m.title,
     content: JSON.stringify({ options: m.options, correctIndex: m.correctIndex }),
+    explanation: m.explanation,
     tag: "Çoktan seçmeli",
   };
 }

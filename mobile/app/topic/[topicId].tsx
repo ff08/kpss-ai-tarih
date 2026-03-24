@@ -87,13 +87,26 @@ export default function SubtopicsScreen() {
           const { percentDone, percentRemaining, hasContent } = getOverall(item.id, {
             informationCount: item.informationCount ?? 0,
             openQaCount: item.openQaCount ?? 0,
-            pastExamQaCount: item.pastExamQaCount ?? 0,
+            wordGameCount: item.wordGameCount ?? 0,
             mcqCount: item.mcqCount ?? 0,
           });
           return (
             <Pressable
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              onPress={() => router.push(`/subtopic/${item.id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/subtopic/[subtopicId]",
+                  params: {
+                    subtopicId: String(item.id),
+                    subtopicTitle: item.title,
+                    topicTitle: title,
+                    informationCount: String(item.informationCount ?? 0),
+                    openQaCount: String(item.openQaCount ?? 0),
+                    wordGameCount: String(item.wordGameCount ?? 0),
+                    mcqCount: String(item.mcqCount ?? 0),
+                  },
+                })
+              }
             >
               <View style={styles.rowMain}>
                 <Text style={styles.rowTitle}>{item.title}</Text>

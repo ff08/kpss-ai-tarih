@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const contentIssueBodySchema = z.object({
   topicId: z.number().int().positive(),
   subtopicId: z.number().int().positive(),
-  datasetKind: z.enum(["INFORMATION", "OPEN_QA", "PAST_EXAM_QA", "MCQ"]),
+  datasetKind: z.enum(["INFORMATION", "OPEN_QA", "MCQ", "WORD_GAME"]),
   contentRowId: z.number().int().positive(),
   category: z.enum(["WRONG_INFO", "CONFLICTING_INFO", "MISSING_INFO"]),
   /** Aynı cihaz/uygulama örneği için kalıcı UUID (tekrar bildirimi engellemek) */
@@ -28,6 +28,29 @@ function parsePositiveIntParam(raw: string): number | null {
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1) return null;
   return n;
+}
+
+function extractWordGameAnswer(raw: string): string | null {
+  const firstLine = raw.split("\n")[0]?.trim() ?? "";
+  const cleaned = firstLine.replace(/^[^\\p{L}]+|[^\\p{L}]+$/gu, "");
+  if (!cleaned) return null;
+  if (cleaned.length < 3 || cleaned.length > 12) return null;
+  if (!/^[\\p{L}]+$/u.test(cleaned)) return null;
+  return cleaned.toLocaleUpperCase("tr-TR");
+}
+
+function shuffleLetters(answer: string): string[] {
+  const letters = Array.from(answer);
+  if (letters.length < 2) return letters;
+  for (let i = letters.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [letters[i], letters[j]] = [letters[j]!, letters[i]!];
+  }
+  if (letters.join("") === answer) {
+    const last = letters.length - 1;
+    [letters[0], letters[last]] = [letters[last]!, letters[0]!];
+  }
+  return letters;
 }
 
 async function verifyContentRowExists(
@@ -53,8 +76,8 @@ async function verifyContentRowExists(
       select: { id: true },
     }));
   }
-  if (datasetKind === "PAST_EXAM_QA") {
-    return !!(await prisma.pastExamQaContent.findFirst({
+  if (datasetKind === "WORD_GAME") {
+    return !!(await prisma.openQaContent.findFirst({
       where: { id: contentRowId, subtopicId },
       select: { id: true },
     }));
@@ -88,12 +111,12 @@ async function build() {
       subtopicCount: number;
       informationCount: number;
       openQaCount: number;
-      pastExamQaCount: number;
+      wordGameCount: number;
       mcqCount: number;
     };
     const stats = new Map<number, TopicStats>();
     for (const t of topics) {
-      stats.set(t.id, { subtopicCount: 0, informationCount: 0, openQaCount: 0, pastExamQaCount: 0, mcqCount: 0 });
+      stats.set(t.id, { subtopicCount: 0, informationCount: 0, openQaCount: 0, wordGameCount: 0, mcqCount: 0 });
     }
     for (const s of subtopics) {
       const row = stats.get(s.topicId);
@@ -110,14 +133,14 @@ async function build() {
             subtopicCount: s.subtopicCount,
             informationCount: s.informationCount,
             openQaCount: s.openQaCount,
-            pastExamQaCount: s.pastExamQaCount,
+            wordGameCount: s.wordGameCount,
             mcqCount: s.mcqCount,
           };
         }),
       };
     }
 
-    const [infoCounts, qaCounts, pastExamQaCounts, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, wordGameRows, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: subtopicIds } },
@@ -128,10 +151,9 @@ async function build() {
         where: { subtopicId: { in: subtopicIds } },
         _count: { _all: true },
       }),
-      prisma.pastExamQaContent.groupBy({
-        by: ["subtopicId"],
+      prisma.openQaContent.findMany({
         where: { subtopicId: { in: subtopicIds } },
-        _count: { _all: true },
+        select: { subtopicId: true, content: true },
       }),
       prisma.mcqContent.groupBy({
         by: ["subtopicId"],
@@ -139,10 +161,15 @@ async function build() {
         _count: { _all: true },
       }),
     ]);
+    const wordGameCountsBySubtopic = new Map<number, number>();
+    for (const row of wordGameRows) {
+      if (!extractWordGameAnswer(row.content)) continue;
+      wordGameCountsBySubtopic.set(row.subtopicId, (wordGameCountsBySubtopic.get(row.subtopicId) ?? 0) + 1);
+    }
 
     function addCounts(
       rows: { subtopicId: number; _count: { _all: number } }[],
-      key: "informationCount" | "openQaCount" | "pastExamQaCount" | "mcqCount",
+      key: "informationCount" | "openQaCount" | "wordGameCount" | "mcqCount",
     ) {
       for (const row of rows) {
         const topicId = subtopicToTopic.get(row.subtopicId);
@@ -154,7 +181,10 @@ async function build() {
     }
     addCounts(infoCounts, "informationCount");
     addCounts(qaCounts, "openQaCount");
-    addCounts(pastExamQaCounts, "pastExamQaCount");
+    addCounts(
+      [...wordGameCountsBySubtopic.entries()].map(([subtopicId, count]) => ({ subtopicId, _count: { _all: count } })),
+      "wordGameCount",
+    );
     addCounts(mcqCounts, "mcqCount");
 
     return {
@@ -165,7 +195,7 @@ async function build() {
           subtopicCount: s.subtopicCount,
           informationCount: s.informationCount,
           openQaCount: s.openQaCount,
-          pastExamQaCount: s.pastExamQaCount,
+            wordGameCount: s.wordGameCount,
           mcqCount: s.mcqCount,
         };
       }),
@@ -196,12 +226,12 @@ async function build() {
           ...s,
           informationCount: 0,
           openQaCount: 0,
-          pastExamQaCount: 0,
+          wordGameCount: 0,
           mcqCount: 0,
         })),
       };
     }
-    const [infoCounts, qaCounts, pastExamQaCounts, mcqCounts] = await Promise.all([
+    const [infoCounts, qaCounts, wordGameRows, mcqCounts] = await Promise.all([
       prisma.informationContent.groupBy({
         by: ["subtopicId"],
         where: { subtopicId: { in: ids } },
@@ -212,10 +242,9 @@ async function build() {
         where: { subtopicId: { in: ids } },
         _count: { _all: true },
       }),
-      prisma.pastExamQaContent.groupBy({
-        by: ["subtopicId"],
+      prisma.openQaContent.findMany({
         where: { subtopicId: { in: ids } },
-        _count: { _all: true },
+        select: { subtopicId: true, content: true },
       }),
       prisma.mcqContent.groupBy({
         by: ["subtopicId"],
@@ -223,9 +252,14 @@ async function build() {
         _count: { _all: true },
       }),
     ]);
+    const wordGameCountsBySubtopic = new Map<number, number>();
+    for (const row of wordGameRows) {
+      if (!extractWordGameAnswer(row.content)) continue;
+      wordGameCountsBySubtopic.set(row.subtopicId, (wordGameCountsBySubtopic.get(row.subtopicId) ?? 0) + 1);
+    }
     const mapI = new Map(infoCounts.map((r) => [r.subtopicId, r._count._all]));
     const mapQ = new Map(qaCounts.map((r) => [r.subtopicId, r._count._all]));
-    const mapP = new Map(pastExamQaCounts.map((r) => [r.subtopicId, r._count._all]));
+    const mapW = wordGameCountsBySubtopic;
     const mapM = new Map(mcqCounts.map((r) => [r.subtopicId, r._count._all]));
     return {
       topicId: topic.id,
@@ -234,7 +268,7 @@ async function build() {
         ...s,
         informationCount: mapI.get(s.id) ?? 0,
         openQaCount: mapQ.get(s.id) ?? 0,
-        pastExamQaCount: mapP.get(s.id) ?? 0,
+        wordGameCount: mapW.get(s.id) ?? 0,
         mcqCount: mapM.get(s.id) ?? 0,
       })),
     };
@@ -253,11 +287,22 @@ async function build() {
     if (!sub) {
       return reply.status(404).send({ error: "Alt konu bulunamadı" });
     }
+    const [informationCount, openQaCount, wordGameRows, mcqCount] = await Promise.all([
+      prisma.informationContent.count({ where: { subtopicId: sub.id } }),
+      prisma.openQaContent.count({ where: { subtopicId: sub.id } }),
+      prisma.openQaContent.findMany({ where: { subtopicId: sub.id }, select: { content: true } }),
+      prisma.mcqContent.count({ where: { subtopicId: sub.id } }),
+    ]);
+    const wordGameCount = wordGameRows.reduce((acc, row) => (extractWordGameAnswer(row.content) ? acc + 1 : acc), 0);
     return {
       subtopicId: sub.id,
       title: sub.title,
       topicId: sub.topic.id,
       topicTitle: sub.topic.title,
+      informationCount,
+      openQaCount,
+      wordGameCount,
+      mcqCount,
     };
   });
 
@@ -268,7 +313,7 @@ async function build() {
       return reply.status(404).send({ error: "Alt konu bulunamadı" });
     }
     const q = request.query as { kind?: string };
-    const allowed = ["INFORMATION", "OPEN_QA", "PAST_EXAM_QA", "MCQ"] as const;
+    const allowed = ["INFORMATION", "OPEN_QA", "MCQ", "WORD_GAME"] as const;
     const kind = allowed.includes(q.kind as (typeof allowed)[number]) ? (q.kind as (typeof allowed)[number]) : "INFORMATION";
 
     const sub = await prisma.subtopic.findUnique({
@@ -329,27 +374,37 @@ async function build() {
       };
     }
 
-    if (kind === "PAST_EXAM_QA") {
-      const rows = await prisma.pastExamQaContent.findMany({
+    if (kind === "WORD_GAME") {
+      const rows = await prisma.openQaContent.findMany({
         where: { subtopicId: subtopicIdNum },
-        orderBy: [{ examYear: "desc" }, { id: "asc" }],
-        select: { id: true, examYear: true, source: true, title: true, content: true, tag: true, hint: true },
+        orderBy: { id: "asc" },
+        select: { id: true, title: true, content: true, hint: true },
       });
+      const cards = rows
+        .map((c) => {
+          const answer = extractWordGameAnswer(c.content);
+          if (!answer) return null;
+          return {
+            id: c.id,
+            kind: "WORD_GAME" as const,
+            difficulty: null,
+            title: c.title,
+            content: JSON.stringify({
+              answer,
+              shuffledLetters: shuffleLetters(answer),
+            }),
+            tag: null,
+            hint: c.hint,
+          };
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
       return {
         subtopicId: sub.id,
         title: sub.title,
         topicId: sub.topic.id,
         topicTitle: sub.topic.title,
         kind,
-        cards: rows.map((c) => ({
-          id: c.id,
-          kind: "PAST_EXAM_QA" as const,
-          difficulty: null,
-          title: c.title,
-          content: c.content,
-          tag: c.tag,
-          hint: c.hint ?? `${c.source ?? "KPSS"} ${c.examYear}`,
-        })),
+        cards,
       };
     }
 

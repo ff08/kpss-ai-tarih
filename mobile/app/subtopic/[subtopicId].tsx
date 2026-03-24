@@ -21,6 +21,7 @@ import { useLocalSearchParams } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   fetchCards,
+  parseWordGamePayload,
   fetchSubtopicMeta,
   submitContentIssueReport,
   type CardKind,
@@ -32,6 +33,7 @@ import { ContentIssueReportModal } from "../../components/ContentIssueReportModa
 import { MdText } from "../../components/MdText";
 import { FlipQaCard } from "../../components/FlipQaCard";
 import { McqSlide } from "../../components/McqSlide";
+import { WordGameCard } from "../../components/WordGameCard";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { APP_TAGLINE } from "../../constants/app";
 import type { ColorPalette } from "../../constants/theme";
@@ -44,11 +46,23 @@ import { getResumeIndexForMode } from "../../lib/studyProgress";
 const MODE_LABELS: Record<CardKind, string> = {
   INFORMATION: "Bilgi kartları",
   OPEN_QA: "Soru–cevap",
-  PAST_EXAM_QA: "Çıkmış soru–cevap",
   MCQ: "Çoktan seçmeli",
+  WORD_GAME: "Kelime oyunu",
+};
+const EMPTY_MODE_COUNTS: Record<CardKind, number> = {
+  INFORMATION: 0,
+  OPEN_QA: 0,
+  MCQ: 0,
+  WORD_GAME: 0,
 };
 
 const MCQ_SECONDS_PER_QUESTION = 60;
+
+function toRouteParamNumber(v: string | string[] | undefined): number {
+  const raw = Array.isArray(v) ? v[0] : v;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
 
 function formatMcqTime(seconds: number): string {
   const s = Math.max(0, seconds);
@@ -62,17 +76,51 @@ export default function CardDeckScreen() {
   const { recordScroll, getSubtopic } = useStudyProgress();
   const styles = useMemo(() => createSubtopicStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { subtopicId } = useLocalSearchParams<{ subtopicId: string }>();
+  const { subtopicId, topicTitle: topicTitleParam, subtopicTitle: subtopicTitleParam, informationCount, openQaCount, wordGameCount, mcqCount } = useLocalSearchParams<{
+    subtopicId: string;
+    topicTitle?: string;
+    subtopicTitle?: string;
+    informationCount?: string;
+    openQaCount?: string;
+    wordGameCount?: string;
+    mcqCount?: string;
+  }>();
   const subtopicIdNum = useMemo(() => {
     const n = Number(subtopicId);
     return Number.isFinite(n) ? n : NaN;
   }, [subtopicId]);
-  const [topicTitle, setTopicTitle] = useState("");
-  const [subTitle, setSubTitle] = useState("");
+  const routeTopicTitle = useMemo(
+    () => (Array.isArray(topicTitleParam) ? topicTitleParam[0] : topicTitleParam) ?? "",
+    [topicTitleParam],
+  );
+  const routeSubtopicTitle = useMemo(
+    () => (Array.isArray(subtopicTitleParam) ? subtopicTitleParam[0] : subtopicTitleParam) ?? "",
+    [subtopicTitleParam],
+  );
+  const routeModeCounts = useMemo<Record<CardKind, number>>(
+    () => ({
+      INFORMATION: toRouteParamNumber(informationCount),
+      OPEN_QA: toRouteParamNumber(openQaCount),
+      WORD_GAME: toRouteParamNumber(wordGameCount),
+      MCQ: toRouteParamNumber(mcqCount),
+    }),
+    [informationCount, openQaCount, wordGameCount, mcqCount],
+  );
+  const routeModeCountsTotal = useMemo(
+    () =>
+      routeModeCounts.INFORMATION +
+      routeModeCounts.OPEN_QA +
+      routeModeCounts.WORD_GAME +
+      routeModeCounts.MCQ,
+    [routeModeCounts],
+  );
+  const [topicTitle, setTopicTitle] = useState(routeTopicTitle);
+  const [subTitle, setSubTitle] = useState(routeSubtopicTitle);
   const [topicId, setTopicId] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportCard, setReportCard] = useState<StudyCard | null>(null);
   const [mode, setMode] = useState<CardKind | null>(null);
+  const [modeCounts, setModeCounts] = useState<Record<CardKind, number>>(routeModeCounts);
   const [cards, setCards] = useState<StudyCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -94,6 +142,12 @@ export default function CardDeckScreen() {
   useEffect(() => {
     getSubtopicRef.current = getSubtopic;
   }, [getSubtopic]);
+
+  useEffect(() => {
+    setTopicTitle(routeTopicTitle);
+    setSubTitle(routeSubtopicTitle);
+    setModeCounts(routeModeCounts);
+  }, [subtopicId, routeTopicTitle, routeSubtopicTitle, routeModeCounts]);
 
   useEffect(() => {
     indexRef.current = index;
@@ -137,6 +191,20 @@ export default function CardDeckScreen() {
         setTopicTitle(m.topicTitle);
         setSubTitle(m.title);
         setTopicId(m.topicId);
+        const nextCounts: Record<CardKind, number> = {
+          INFORMATION: m.informationCount ?? 0,
+          OPEN_QA: m.openQaCount ?? 0,
+          WORD_GAME: m.wordGameCount ?? 0,
+          MCQ: m.mcqCount ?? 0,
+        };
+        setModeCounts((prev) => {
+          const prevTotal = prev.INFORMATION + prev.OPEN_QA + prev.WORD_GAME + prev.MCQ;
+          const nextTotal =
+            nextCounts.INFORMATION + nextCounts.OPEN_QA + nextCounts.WORD_GAME + nextCounts.MCQ;
+          // Eğer API geçici olarak 0 dönerse, listeden gelen ilk dolu değerleri koru.
+          if (routeModeCountsTotal > 0 && prevTotal > 0 && nextTotal === 0) return prev;
+          return nextCounts;
+        });
       })
       .catch((e) => {
         if (cancelled) return;
@@ -148,7 +216,7 @@ export default function CardDeckScreen() {
     return () => {
       cancelled = true;
     };
-  }, [subtopicId]);
+  }, [subtopicId, routeModeCountsTotal]);
 
   useEffect(() => {
     setMode(null);
@@ -165,6 +233,7 @@ export default function CardDeckScreen() {
       setSubTitle(data.title);
       setTopicId(data.topicId);
       setCards(data.cards);
+      setModeCounts((prev) => ({ ...prev, [mode]: data.cards.length }));
       const resume = getResumeIndexForMode(getSubtopicRef.current(subtopicIdNum), mode, data.cards.length);
       setIndex(resume);
       const total = data.cards.length;
@@ -361,6 +430,7 @@ export default function CardDeckScreen() {
                 <Text style={styles.modeRowTitle}>Bilgi kartları</Text>
                 <Text style={styles.modeRowSub}>Özetleri dikey kaydırarak okuyun</Text>
               </View>
+              <Text style={styles.modeRowCount}>{modeCounts.INFORMATION}</Text>
             </View>
           </Pressable>
           <Pressable
@@ -373,6 +443,7 @@ export default function CardDeckScreen() {
                 <Text style={styles.modeRowTitle}>Soru–cevap</Text>
                 <Text style={styles.modeRowSub}>Karta dokununca cevap arka yüzde açılır</Text>
               </View>
+              <Text style={styles.modeRowCount}>{modeCounts.OPEN_QA}</Text>
             </View>
           </Pressable>
           <Pressable
@@ -385,18 +456,20 @@ export default function CardDeckScreen() {
                 <Text style={styles.modeRowTitle}>Çoktan seçmeli</Text>
                 <Text style={styles.modeRowSub}>Şıklardan birini seçin, doğru/yanlış görün</Text>
               </View>
+              <Text style={styles.modeRowCount}>{modeCounts.MCQ}</Text>
             </View>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.modeRow, pressed && styles.modeRowPressed]}
-            onPress={() => setMode("PAST_EXAM_QA")}
+            onPress={() => setMode("WORD_GAME")}
           >
             <View style={styles.modeRowInner}>
-              <Ionicons name="time-outline" size={22} color={colors.accent} style={styles.modeIcon} />
+              <Ionicons name="extension-puzzle-outline" size={22} color={colors.accent} style={styles.modeIcon} />
               <View style={styles.modeRowTexts}>
-                <Text style={styles.modeRowTitle}>Çıkmış soru–cevap</Text>
-                <Text style={styles.modeRowSub}>Son yılların soru tarzını kart formatında tekrar edin</Text>
+                <Text style={styles.modeRowTitle}>Kelime oyunu</Text>
+                <Text style={styles.modeRowSub}>Karışık harflerden doğru cevabı bul</Text>
               </View>
+              <Text style={styles.modeRowCount}>{modeCounts.WORD_GAME}</Text>
             </View>
           </Pressable>
         </View>
@@ -591,15 +664,20 @@ export default function CardDeckScreen() {
                 {mode === "OPEN_QA" ? (
                   <FlipQaCard question={item.title} answer={item.content} resetKey={item.id} hint={item.hint} />
                 ) : null}
-                {mode === "PAST_EXAM_QA" ? (
-                  <FlipQaCard question={item.title} answer={item.content} resetKey={item.id} hint={item.hint} />
-                ) : null}
                 {mode === "MCQ" ? (
                   <McqSlide
                     item={item}
                     isActive={index === itemIndex}
                     timeUp={mcqTimeLeft === 0 && index === itemIndex}
                     onAnswer={() => setMcqPaused(true)}
+                  />
+                ) : null}
+                {mode === "WORD_GAME" ? (
+                  <WordGameCard
+                    question={item.title}
+                    answer={parseWordGamePayload(item.content).answer}
+                    shuffledLetters={parseWordGamePayload(item.content).shuffledLetters}
+                    hint={item.hint}
                   />
                 ) : null}
               </View>
@@ -610,8 +688,10 @@ export default function CardDeckScreen() {
         )}
       </View>
       <Text style={styles.swipeHint}>
-        {mode === "OPEN_QA" || mode === "PAST_EXAM_QA"
+        {mode === "OPEN_QA"
           ? "Dikey kaydırın; cevap için karta dokunun"
+          : mode === "WORD_GAME"
+            ? "Harfleri secip kelimeyi tamamlayin"
           : mode === "MCQ"
             ? "Her soru için 1 dk; dikey kaydırarak ilerleyin"
             : "Dikey kaydırarak ileri ve geri gidebilirsiniz"}
@@ -663,6 +743,15 @@ function createSubtopicStyles(colors: ColorPalette) {
     modeRowTexts: { flex: 1, minWidth: 0 },
     modeRowTitle: { color: colors.text, fontSize: 16, fontWeight: "600", marginBottom: 4 },
     modeRowSub: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+    modeRowCount: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: "700",
+      fontVariant: ["tabular-nums"],
+      marginLeft: 10,
+      minWidth: 28,
+      textAlign: "right",
+    },
     mcqFocusBar: {
       backgroundColor: colors.bg,
       borderBottomWidth: StyleSheet.hairlineWidth,

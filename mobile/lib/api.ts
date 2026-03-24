@@ -10,7 +10,7 @@ export type Topic = {
   subtopicCount: number;
   informationCount: number;
   openQaCount: number;
-  pastExamQaCount: number;
+  wordGameCount: number;
   mcqCount: number;
 };
 
@@ -20,13 +20,13 @@ export type Subtopic = {
   sortOrder: number;
   informationCount: number;
   openQaCount: number;
-  pastExamQaCount: number;
+  wordGameCount: number;
   mcqCount: number;
 };
 
-export type CardKind = "INFORMATION" | "OPEN_QA" | "PAST_EXAM_QA" | "MCQ";
+export type CardKind = "INFORMATION" | "OPEN_QA" | "MCQ" | "WORD_GAME";
 
-export type ContentDatasetKind = "INFORMATION" | "OPEN_QA" | "PAST_EXAM_QA" | "MCQ";
+export type ContentDatasetKind = "INFORMATION" | "OPEN_QA" | "MCQ" | "WORD_GAME";
 
 export type ContentIssueCategory = "WRONG_INFO" | "CONFLICTING_INFO" | "MISSING_INFO";
 
@@ -49,6 +49,11 @@ export type McqPayload = {
   correctIndex: number;
 };
 
+export type WordGamePayload = {
+  answer: string;
+  shuffledLetters: string[];
+};
+
 export function parseMcqPayload(content: string): McqPayload {
   const j = JSON.parse(content) as unknown;
   if (
@@ -62,6 +67,22 @@ export function parseMcqPayload(content: string): McqPayload {
     return j as McqPayload;
   }
   throw new Error("Geçersiz çoktan seçmeli verisi");
+}
+
+export function parseWordGamePayload(content: string): WordGamePayload {
+  const j = JSON.parse(content) as unknown;
+  if (
+    typeof j === "object" &&
+    j !== null &&
+    "answer" in j &&
+    "shuffledLetters" in j &&
+    typeof (j as WordGamePayload).answer === "string" &&
+    Array.isArray((j as WordGamePayload).shuffledLetters) &&
+    (j as WordGamePayload).shuffledLetters.every((x) => typeof x === "string")
+  ) {
+    return j as WordGamePayload;
+  }
+  throw new Error("Gecersiz kelime oyunu verisi");
 }
 
 export async function fetchTopics(): Promise<Topic[]> {
@@ -86,6 +107,10 @@ export async function fetchSubtopicMeta(subtopicId: string | number): Promise<{
   title: string;
   topicId: number;
   topicTitle: string;
+  informationCount: number;
+  openQaCount: number;
+  wordGameCount: number;
+  mcqCount: number;
 }> {
   const r = await fetch(`${base()}/subtopics/${encodeURIComponent(String(subtopicId))}`);
   if (!r.ok) throw new Error(`Alt konu bilgisi alınamadı (${r.status})`);

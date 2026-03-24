@@ -16,7 +16,6 @@ model Topic {
   subtopics             Subtopic[]
   informationContents   InformationContent[]
   openQaContents        OpenQaContent[]
-  pastExamQaContents    PastExamQaContent[]
   mcqContents           McqContent[]
   contentIssueReports   ContentIssueReport[]
 }
@@ -35,7 +34,6 @@ model Subtopic {
   sortOrder           Int                    @default(0)
   informationContents InformationContent[]
   openQaContents      OpenQaContent[]
-  pastExamQaContents  PastExamQaContent[]
   mcqContents         McqContent[]
   contentIssueReports   ContentIssueReport[]
 
@@ -78,27 +76,6 @@ model OpenQaContent {
   @@index([subtopicId, topicId])
 }
 
-/// Son 10 yıl KPSS çıkmış / çıkmış tarzı soru-cevap kartları
-model PastExamQaContent {
-  id         Int      @id @default(autoincrement())
-  topicId    Int
-  topic      Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  subtopicId Int
-  subtopic   Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
-  examYear   Int
-  source     String?  @db.VarChar(120)
-  title      String
-  content    String   @db.Text
-  tag        String?
-  hint       String?
-  createdAt  DateTime @default(now())
-
-  @@index([subtopicId])
-  @@index([topicId])
-  @@index([subtopicId, topicId])
-  @@index([topicId, examYear])
-}
-
 /// Çoktan seçmeli kartlar (MCQ); `content` JSON şeklinde seçenekler
 model McqContent {
   id         Int                @id @default(autoincrement())
@@ -121,8 +98,8 @@ model McqContent {
 enum ContentDatasetKind {
   INFORMATION
   OPEN_QA
-  PAST_EXAM_QA
   MCQ
+  WORD_GAME
 }
 
 enum ContentIssueCategory {

@@ -14,15 +14,15 @@ export type ModeProgress = {
 export type SubtopicProgress = {
   INFORMATION?: ModeProgress;
   OPEN_QA?: ModeProgress;
-  PAST_EXAM_QA?: ModeProgress;
   MCQ?: ModeProgress;
+  WORD_GAME?: ModeProgress;
   updatedAt: number;
 };
 
 export type SubtopicContentCounts = {
   informationCount: number;
   openQaCount: number;
-  pastExamQaCount: number;
+  wordGameCount: number;
   mcqCount: number;
 };
 
@@ -99,23 +99,23 @@ function modeRatioForMode(
   return Math.min(1, (f + 1) / totalInDb);
 }
 
-/** Ağırlıklı tamamlanma: (p_i*n_i + p_q*n_q + p_p*n_p + p_m*n_m) / toplam */
+/** Ağırlıklı tamamlanma: (p_i*n_i + p_q*n_q + p_w*n_w + p_m*n_m) / toplam */
 export function overallWeightedPercent(
   p: SubtopicProgress | undefined,
   counts: SubtopicContentCounts,
 ): { percentDone: number; percentRemaining: number; hasContent: boolean } {
   const nI = counts.informationCount;
   const nQ = counts.openQaCount;
-  const nP = counts.pastExamQaCount;
+  const nW = counts.wordGameCount;
   const nM = counts.mcqCount;
-  const sum = nI + nQ + nP + nM;
+  const sum = nI + nQ + nW + nM;
   if (sum === 0) {
     return { percentDone: 0, percentRemaining: 100, hasContent: false };
   }
   const overall =
     (modeRatioForMode(p, "INFORMATION", nI) * nI +
       modeRatioForMode(p, "OPEN_QA", nQ) * nQ +
-      modeRatioForMode(p, "PAST_EXAM_QA", nP) * nP +
+      modeRatioForMode(p, "WORD_GAME", nW) * nW +
       modeRatioForMode(p, "MCQ", nM) * nM) /
     sum;
   const percentDone = Math.min(100, Math.max(0, Math.round(overall * 100)));

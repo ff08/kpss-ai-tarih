@@ -112,27 +112,6 @@ export default function TopicsScreen() {
                   bg={colors.topicStatSubBg}
                   fg={colors.topicStatSubFg}
                 />
-                <TopicStatChip
-                  icon="document-text-outline"
-                  count={item.informationCount ?? 0}
-                  caption="Bilgi"
-                  bg={colors.topicStatInfoBg}
-                  fg={colors.topicStatInfoFg}
-                />
-                <TopicStatChip
-                  icon="chatbubbles-outline"
-                  count={item.openQaCount ?? 0}
-                  caption="Soru Cevap"
-                  bg={colors.topicStatQaBg}
-                  fg={colors.topicStatQaFg}
-                />
-                <TopicStatChip
-                  icon="list-circle-outline"
-                  count={item.mcqCount ?? 0}
-                  caption="Çoktan Seçmeli"
-                  bg={colors.topicStatMcqBg}
-                  fg={colors.topicStatMcqFg}
-                />
               </View>
             </View>
             <Text style={styles.chevron}>›</Text>

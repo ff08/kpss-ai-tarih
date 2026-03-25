@@ -316,7 +316,7 @@ async function build() {
       const rows = await prisma.informationContent.findMany({
         where: { subtopicId: subtopicIdNum },
         orderBy: { id: "asc" },
-        select: { id: true, title: true, content: true, tag: true },
+        select: { id: true, title: true, content: true, tag: true, imageUrl: true },
       });
       return {
         subtopicId: sub.id,
@@ -331,6 +331,7 @@ async function build() {
           title: c.title,
           content: c.content,
           tag: c.tag,
+          imageUrl: c.imageUrl,
           hint: null,
         })),
       };

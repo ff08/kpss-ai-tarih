@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FlipQaCard } from "../../components/FlipQaCard";
 import { McqSlide } from "../../components/McqSlide";
 import { MdText } from "../../components/MdText";
+import { Image as ExpoImage } from "expo-image";
 import type { ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { pickRandomStudyCard, type RandomPickResult } from "../../lib/pickRandomStudyCard";
@@ -77,6 +78,14 @@ const RandomFeedRow = memo(
                 contentContainerStyle={styles.infoScrollContent}
                 showsVerticalScrollIndicator={false}
               >
+                {item.card.imageUrl ? (
+                  <ExpoImage
+                    source={{ uri: item.card.imageUrl }}
+                    style={styles.infoImage}
+                    contentFit="cover"
+                    accessibilityLabel="Kart görseli"
+                  />
+                ) : null}
                 <Text style={[styles.cardTitle, styles.infoText]}>{item.card.title}</Text>
                 <MdText style={[styles.cardBody, styles.infoText]}>{item.card.content}</MdText>
               </ScrollView>
@@ -174,6 +183,13 @@ function createStyles(colors: ColorPalette) {
       paddingVertical: 4,
     },
     infoText: { textAlign: "left", alignSelf: "stretch", width: "100%" },
+    infoImage: {
+      width: "100%",
+      aspectRatio: 4 / 5,
+      borderRadius: 12,
+      marginBottom: 14,
+      backgroundColor: colors.surface,
+    },
     cardTitle: {
       color: colors.text,
       fontSize: 20,

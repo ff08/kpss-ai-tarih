@@ -40,6 +40,8 @@ export type StudyCard = {
   title: string;
   content: string;
   tag: string | null;
+  /** INFORMATION kartları için opsiyonel görsel URL */
+  imageUrl?: string | null;
   /** Soru–cevap modunda soru yüzü ipucu (API’den) */
   hint?: string | null;
 };

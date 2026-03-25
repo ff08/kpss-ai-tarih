@@ -2,6 +2,10 @@
  * İslamiyet Öncesi Türk Tarihi (müfredatta sortOrder=1) bilgi kartlarını JSON'dan yükler.
  * Alt konu eşlemesi sortOrder ile yapılır (veritabanı id'leri ortama göre değişebilir).
  *
+ * Bilgi kartı `content` formatı (frontend tarafından okunur):
+ * - Metin normal şekilde basılır (frontend yalnızca `**kalın**` + satır sonu desteği yapar).
+ * - Ayrı `imageUrl` alanı ile kart üstünde görsel gösterilir.
+ *
  * Kullanım:
  *   npx tsx scripts/import-information-topic-1.ts
  * Önce tüm bilgi kartlarını silmek için:
@@ -26,6 +30,7 @@ const payloadSchema = z.object({
       title: z.string().min(1),
       content: z.string().min(1),
       tag: z.string().optional(),
+      imageUrl: z.string().url().optional().nullable(),
     }),
   ),
 });
@@ -51,7 +56,14 @@ async function main() {
   });
   const bySort = new Map(subtopics.map((s) => [s.sortOrder, s]));
 
-  const rows: { topicId: number; subtopicId: number; title: string; content: string; tag?: string }[] = [];
+  const rows: {
+    topicId: number;
+    subtopicId: number;
+    title: string;
+    content: string;
+    tag?: string;
+    imageUrl?: string | null;
+  }[] = [];
   for (const c of parsed.cards) {
     const sub = bySort.get(c.subtopicSortOrder);
     if (!sub) {
@@ -63,6 +75,7 @@ async function main() {
       title: c.title.trim(),
       content: c.content.trim(),
       tag: c.tag?.trim() || undefined,
+      imageUrl: c.imageUrl?.trim() || null,
     });
   }
 

@@ -4,11 +4,13 @@ import { StyleSheet, Text, TextProps } from "react-native";
 /**
  * Basit **kalın** ve satır sonu desteği (bilgi kartı içeriği için).
  */
-export function MdText({ children, style, ...rest }: TextProps) {
+type MdTextProps = TextProps & {
+  children: React.ReactNode;
+};
+
+export function MdText({ children, style, ...rest }: MdTextProps) {
   const text = typeof children === "string" ? children : "";
-  if (!text) {
-    return <Text style={style} {...rest} />;
-  }
+  if (!text) return <Text style={style} {...rest} />;
   const lines = text.split("\n");
   return (
     <Text style={style} {...rest}>

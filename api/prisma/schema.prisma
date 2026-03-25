@@ -52,6 +52,8 @@ model InformationContent {
   title      String
   content    String   @db.Text
   tag        String?
+  /// Kart üstünde resim göstermek için (opsiyonel).
+  imageUrl   String?  @map("image_url")
   createdAt  DateTime @default(now())
 
   @@index([subtopicId])

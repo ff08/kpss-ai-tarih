@@ -17,6 +17,7 @@ import {
   ViewToken,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -723,6 +724,14 @@ export default function CardDeckScreen() {
                       contentContainerStyle={styles.infoScrollContent}
                       showsVerticalScrollIndicator={false}
                     >
+                      {item.imageUrl ? (
+                        <ExpoImage
+                          source={{ uri: item.imageUrl }}
+                          style={styles.infoImage}
+                          contentFit="cover"
+                          accessibilityLabel="Kart görseli"
+                        />
+                      ) : null}
                       <Text style={[styles.cardTitle, styles.infoText]}>{item.title}</Text>
                       <MdText style={[styles.cardBody, styles.infoText]}>{item.content}</MdText>
                     </ScrollView>
@@ -902,6 +911,13 @@ function createSubtopicStyles(colors: ColorPalette) {
       textAlign: "left",
       alignSelf: "stretch",
       width: "100%",
+    },
+    infoImage: {
+      width: "100%",
+      aspectRatio: 4 / 5,
+      borderRadius: 12,
+      marginBottom: 14,
+      backgroundColor: colors.surface,
     },
     cardTitle: {
       color: colors.text,

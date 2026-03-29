@@ -28,11 +28,12 @@ export function mergeRankDefinitions(fallback: RankLevelDef[], api: ApiRankRow[]
   if (api && api.length > 0) {
     for (const a of api) {
       const prev = map.get(a.level);
+      const url = a.imageUrl?.trim();
       map.set(a.level, {
         level: a.level,
         title: a.title?.trim() || prev?.title || `Seviye ${a.level}`,
         characteristic: (a.description ?? prev?.characteristic) || "",
-        imageUrl: a.imageUrl?.trim() || null,
+        imageUrl: url || prev?.imageUrl || null,
       });
     }
   }

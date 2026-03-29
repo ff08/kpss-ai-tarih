@@ -34,6 +34,7 @@ function RootLayoutInner() {
         <Stack.Screen name="premium" options={{ animation: "slide_from_bottom" }} />
         <Stack.Screen name="link-email" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="link-verify" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen name="ranks-badges" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="topic/[topicId]" />
         <Stack.Screen name="subtopic/[subtopicId]" />
       </Stack>

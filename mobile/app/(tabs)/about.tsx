@@ -234,6 +234,18 @@ export default function AboutScreen() {
         </View>
 
         <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            onPress={() => router.push("/ranks-badges")}
+            accessibilityRole="button"
+            accessibilityLabel="Rütbe ve Rozetlerim"
+          >
+            <Text style={styles.linkRowText}>Rütbe ve Rozetlerim</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Görünüm</Text>
           <View style={styles.themeRow}>
             <View style={styles.themeLabels}>

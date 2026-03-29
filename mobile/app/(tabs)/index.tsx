@@ -14,7 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { RankCard } from "../../components/RankCard";
+import { RankCardSlider } from "../../components/RankCardSlider";
 import { RankCelebrationModal } from "../../components/RankCelebrationModal";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ProgressRing } from "../../components/ProgressRing";
@@ -135,6 +135,11 @@ export default function TopicsScreen() {
   useFocusEffect(
     useCallback(() => {
       void reloadProgress();
+      void fetchCatalogRanks()
+        .then(setApiRanks)
+        .catch(() => {
+          /* ağ yoksa mevcut apiRanks kalır */
+        });
     }, [reloadProgress]),
   );
 
@@ -161,7 +166,11 @@ export default function TopicsScreen() {
     setError(null);
     setLoading(true);
     try {
-      const t = await fetchTopics();
+      const [t, rankRows] = await Promise.all([
+        fetchTopics(),
+        fetchCatalogRanks().catch((): CatalogRank[] => []),
+      ]);
+      setApiRanks(rankRows);
       const subPairs = await Promise.all(t.map((topic) => fetchSubtopics(topic.id)));
       const map: Record<number, Subtopic[]> = {};
       t.forEach((topic, i) => {
@@ -185,11 +194,6 @@ export default function TopicsScreen() {
   const mergedRanks = useMemo(() => mergeRankDefinitions(KPSS_TARIH_RANKS, apiRanks), [apiRanks]);
 
   const rankProgress = useRankProgress(sortedTopics, subtopicsByTopicId, mergedRanks);
-
-  const rankCardDisplay = useMemo(
-    () => rankProgress.currentRank ?? mergedRanks[0] ?? null,
-    [rankProgress.currentRank, mergedRanks],
-  );
 
   useEffect(() => {
     if (loading || mergedRanks.length === 0) return;
@@ -225,7 +229,8 @@ export default function TopicsScreen() {
   }, [sortedTopics, subtopicsByTopicId, getOverall]);
 
   const { width: winW } = Dimensions.get("window");
-  const cardWidth = (winW - PAD * 2 - GRID_GAP) / 2;
+  const slideWidth = winW - PAD * 2;
+  const cardWidth = (slideWidth - GRID_GAP) / 2;
 
   const onLockedPress = useCallback(() => {
     Alert.alert(
@@ -233,6 +238,22 @@ export default function TopicsScreen() {
       `Bir sonraki üniteyi açmak için önceki ünitede en az %${UNLOCK_NEXT_TOPIC_PERCENT} ilerleme kaydetmelisin.`,
     );
   }, []);
+
+  const listHeader = useMemo(
+    () => (
+      <>
+        <RankCardSlider rankState={rankProgress} mergedRanks={mergedRanks} colors={colors} slideWidth={slideWidth} />
+        <View style={styles.summary}>
+          <View style={styles.summaryTextCol}>
+            <Text style={styles.summaryLabel}>Genel ilerleme</Text>
+            <Text style={styles.summaryHint}>Kartları çalıştıkça yüzde artar</Text>
+          </View>
+          <ProgressRing percent={globalPercent} size={52} strokeWidth={4} colors={colors} />
+        </View>
+      </>
+    ),
+    [rankProgress, mergedRanks, colors, globalPercent, slideWidth, styles],
+  );
 
   if (loading && topics.length === 0) {
     return (
@@ -269,22 +290,13 @@ export default function TopicsScreen() {
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScreenHeader title={APP_NAME} aboveTitle={greetingLine} tagline={APP_TAGLINE} />
 
-      <RankCard rankState={rankProgress} displayRank={rankCardDisplay} colors={colors} />
-
-      <View style={styles.summary}>
-        <View style={styles.summaryTextCol}>
-          <Text style={styles.summaryLabel}>Genel ilerleme</Text>
-          <Text style={styles.summaryHint}>Kartları çalıştıkça yüzde artar</Text>
-        </View>
-        <ProgressRing percent={globalPercent} size={52} strokeWidth={4} colors={colors} />
-      </View>
-
       <FlatList
         style={styles.listFlex}
         data={topicRows}
         keyExtractor={(item) => String(item.topic.id)}
         numColumns={2}
         columnWrapperStyle={styles.columnWrap}
+        ListHeaderComponent={listHeader}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
         contentContainerStyle={styles.gridContent}
         renderItem={({ item }) => (
@@ -314,6 +326,7 @@ function createStyles(colors: ColorPalette) {
     listFlex: { flex: 1 },
     gridContent: {
       paddingHorizontal: PAD,
+      paddingTop: 0,
       paddingBottom: 24,
     },
     columnWrap: {
@@ -322,7 +335,7 @@ function createStyles(colors: ColorPalette) {
       gap: GRID_GAP,
     },
     summary: {
-      marginHorizontal: PAD,
+      marginHorizontal: 0,
       marginBottom: 16,
       paddingHorizontal: 16,
       paddingVertical: 14,

@@ -316,6 +316,39 @@ function modeRatioForMode(
 }
 
 /** Ağırlıklı tamamlanma: (p_i*n_i + p_q*n_q + p_w*n_w + p_m*n_m) / toplam */
+/**
+ * Üniteler sırayla: bir ünitedeki tüm alt konular tamamlanmadan sonraki sayılmaz.
+ * Alt konu yoksa o ünite tamamlanmış sayılmaz.
+ */
+export function countConsecutiveCompletedUnits(
+  sortedTopics: Array<{ id: number; sortOrder: number }>,
+  subtopicsByTopicId: Record<
+    number,
+    Array<{
+      id: number;
+      sortOrder: number;
+      informationCount: number;
+      openQaCount: number;
+      wordGameCount: number;
+      mcqCount: number;
+    }>
+  >,
+  getSubtopic: (id: number) => SubtopicProgress | undefined,
+): number {
+  const topics = [...sortedTopics].sort((a, b) => a.sortOrder - b.sortOrder);
+  let count = 0;
+  for (const topic of topics) {
+    const subs = [...(subtopicsByTopicId[topic.id] ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (subs.length === 0) break;
+    const allComplete = subs.every((s) =>
+      isSubtopicFullyComplete(getSubtopic(s.id), subtopicCountsFromApi(s)),
+    );
+    if (!allComplete) break;
+    count++;
+  }
+  return count;
+}
+
 export function overallWeightedPercent(
   p: SubtopicProgress | undefined,
   counts: SubtopicContentCounts,

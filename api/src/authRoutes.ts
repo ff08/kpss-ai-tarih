@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { AppLogLevel, SubscriptionStatus } from "@prisma/client";
 import { z } from "zod";
+import { resolveSelectedExamId } from "./examHelpers";
 
 const OTP_TTL_MS = Number(process.env.OTP_EXPIRY_MINUTES ?? 10) * 60 * 1000;
 const SESSION_MS = Number(process.env.SESSION_DAYS ?? 30) * 24 * 60 * 60 * 1000;
@@ -55,16 +56,20 @@ const verifyOtpBody = z.object({
   email: z.string().email(),
   code: z.string().regex(/^\d{6}$/),
   displayName: z.string().max(120).optional(),
+  /** @deprecated examSlug kullanın */
   examTargetId: z.string().max(80).optional(),
+  /** ExamCatalog.slug (örn. kpss_lisans_tarih) */
+  examSlug: z.string().max(80).optional(),
 });
 
 const guestBody = z.object({
   guestClientId: z.string().min(16).max(64),
   displayName: z.string().max(120).optional(),
   examTargetId: z.string().max(80).optional(),
+  examSlug: z.string().max(80).optional(),
 });
 
-function authHeaderToken(raw: string | undefined): string | null {
+export function authHeaderToken(raw: string | undefined): string | null {
   if (!raw || !raw.startsWith("Bearer ")) return null;
   const t = raw.slice(7).trim();
   return t.length > 0 ? t : null;
@@ -119,7 +124,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     if (!parsed.success) {
       return reply.status(400).send({ error: "Geçersiz istek" });
     }
-    const { email, code, displayName, examTargetId } = parsed.data;
+    const { email, code, displayName, examTargetId, examSlug } = parsed.data;
     const normalized = email.toLowerCase().trim();
 
     const challenge = await prisma.emailOtpChallenge.findFirst({
@@ -143,12 +148,17 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     await prisma.emailOtpChallenge.delete({ where: { id: challenge.id } });
 
     const mergeToken = authHeaderToken(request.headers.authorization);
-    let guestUser: { id: string; isGuest: boolean; displayName: string | null; examTargetId: string | null } | null =
-      null;
+    let guestUser: {
+      id: string;
+      isGuest: boolean;
+      displayName: string | null;
+      examTargetId: string | null;
+      selectedExamId: number | null;
+    } | null = null;
     if (mergeToken) {
       const mergeSession = await prisma.session.findUnique({
         where: { token: mergeToken },
-        include: { user: true },
+        include: { user: { select: { id: true, isGuest: true, displayName: true, examTargetId: true, selectedExamId: true } } },
       });
       if (mergeSession && mergeSession.expiresAt >= new Date()) {
         if (!mergeSession.user.isGuest) {
@@ -169,6 +179,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
           data: {
             displayName: emailUser.displayName ?? guestUser.displayName,
             examTargetId: emailUser.examTargetId ?? guestUser.examTargetId,
+            selectedExamId: emailUser.selectedExamId ?? guestUser.selectedExamId,
             isGuest: false,
           },
         });
@@ -219,6 +230,17 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       return reply.status(500).send({ error: "İşlem tamamlanamadı" });
     }
 
+    const examIdResolved = await resolveSelectedExamId(prisma, {
+      examSlug: examSlug ?? undefined,
+      examTargetId: examTargetId ?? guestUser?.examTargetId ?? undefined,
+    });
+    if (examIdResolved) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { selectedExamId: examIdResolved },
+      });
+    }
+
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_MS);
     await prisma.session.deleteMany({ where: { userId: user.id } });
@@ -239,15 +261,26 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       },
     });
 
+    const uOut = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { selectedExam: { select: { slug: true, label: true } } },
+    });
+    if (!uOut) {
+      return reply.status(500).send({ error: "İşlem tamamlanamadı" });
+    }
+
     return {
       token,
       expiresAt: expiresAt.toISOString(),
       user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        examTargetId: user.examTargetId,
-        isGuest: user.isGuest,
+        id: uOut.id,
+        email: uOut.email,
+        displayName: uOut.displayName,
+        examTargetId: uOut.examTargetId,
+        selectedExamId: uOut.selectedExamId,
+        selectedExamSlug: uOut.selectedExam?.slug ?? null,
+        selectedExamLabel: uOut.selectedExam?.label ?? null,
+        isGuest: uOut.isGuest,
       },
     };
   });
@@ -257,7 +290,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     if (!parsed.success) {
       return reply.status(400).send({ error: "Geçersiz istek" });
     }
-    const { guestClientId, displayName, examTargetId } = parsed.data;
+    const { guestClientId, displayName, examTargetId, examSlug } = parsed.data;
 
     let user = await prisma.user.findUnique({ where: { guestClientId } });
     if (!user) {
@@ -279,6 +312,17 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       });
     }
 
+    const examIdGuest = await resolveSelectedExamId(prisma, {
+      examSlug: examSlug ?? undefined,
+      examTargetId: examTargetId ?? undefined,
+    });
+    if (examIdGuest) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { selectedExamId: examIdGuest },
+      });
+    }
+
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_MS);
     await prisma.session.deleteMany({ where: { userId: user.id } });
@@ -293,15 +337,80 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       },
     });
 
+    const uGuest = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { selectedExam: { select: { slug: true, label: true } } },
+    });
+    if (!uGuest) {
+      return reply.status(500).send({ error: "İşlem tamamlanamadı" });
+    }
+
     return {
       token,
       expiresAt: expiresAt.toISOString(),
       user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        examTargetId: user.examTargetId,
-        isGuest: user.isGuest,
+        id: uGuest.id,
+        email: uGuest.email,
+        displayName: uGuest.displayName,
+        examTargetId: uGuest.examTargetId,
+        selectedExamId: uGuest.selectedExamId,
+        selectedExamSlug: uGuest.selectedExam?.slug ?? null,
+        selectedExamLabel: uGuest.selectedExam?.label ?? null,
+        isGuest: uGuest.isGuest,
+      },
+    };
+  });
+
+  const patchMeBody = z.object({
+    examSlug: z.string().min(1).max(80),
+  });
+
+  /** Seçili sınavı günceller (`ExamCatalog.slug`). */
+  app.patch("/auth/me", async (request, reply) => {
+    const token = authHeaderToken(request.headers.authorization);
+    if (!token) {
+      return reply.status(401).send({ error: "Yetkisiz" });
+    }
+    const parsed = patchMeBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Geçersiz istek" });
+    }
+    const session = await prisma.session.findUnique({
+      where: { token },
+      select: { userId: true, expiresAt: true },
+    });
+    if (!session || session.expiresAt < new Date()) {
+      return reply.status(401).send({ error: "Oturum geçersiz" });
+    }
+    const slug = parsed.data.examSlug.trim();
+    const exam = await prisma.examCatalog.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!exam) {
+      return reply.status(400).send({ error: "Geçersiz sınav" });
+    }
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { selectedExamId: exam.id },
+    });
+    const u = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: { selectedExam: { select: { slug: true, label: true } } },
+    });
+    if (!u) {
+      return reply.status(500).send({ error: "İşlem tamamlanamadı" });
+    }
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+        displayName: u.displayName,
+        examTargetId: u.examTargetId,
+        selectedExamId: u.selectedExamId,
+        selectedExamSlug: u.selectedExam?.slug ?? null,
+        selectedExamLabel: u.selectedExam?.label ?? null,
+        isGuest: u.isGuest,
       },
     };
   });
@@ -337,7 +446,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     }
     const session = await prisma.session.findUnique({
       where: { token },
-      include: { user: true },
+      include: { user: { include: { selectedExam: { select: { slug: true, label: true } } } } },
     });
     if (!session || session.expiresAt < new Date()) {
       return reply.status(401).send({ error: "Oturum geçersiz" });
@@ -356,6 +465,9 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
         email: u.email,
         displayName: u.displayName,
         examTargetId: u.examTargetId,
+        selectedExamId: u.selectedExamId,
+        selectedExamSlug: u.selectedExam?.slug ?? null,
+        selectedExamLabel: u.selectedExam?.label ?? null,
         isGuest: u.isGuest,
       },
       premium,

@@ -1,4 +1,5 @@
 import { getDefaultApiBase } from "./config";
+import { contentApiAuthParts } from "./contentApiContext";
 
 const base = () => getDefaultApiBase();
 
@@ -89,8 +90,54 @@ export function parseWordGamePayload(content: string): WordGamePayload {
   throw new Error("Gecersiz kelime oyunu verisi");
 }
 
+export type CatalogExam = {
+  id: number;
+  slug: string;
+  label: string;
+  description: string | null;
+  sortOrder: number;
+  /** Sadece `includeInactive` ile oturumlu istekte */
+  isActive?: boolean;
+};
+
+export type CatalogRank = {
+  level: number;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+};
+
+export async function fetchCatalogRanks(): Promise<CatalogRank[]> {
+  const { headers, examSlug } = await contentApiAuthParts();
+  const sp = new URLSearchParams();
+  if (examSlug) sp.set("examSlug", examSlug);
+  const q = sp.toString();
+  const r = await fetch(`${base()}/catalog/ranks${q ? `?${q}` : ""}`, { headers });
+  if (!r.ok) throw new Error(`Rütbe listesi alınamadı (${r.status})`);
+  const j = (await r.json()) as { ranks: CatalogRank[] };
+  return j.ranks;
+}
+
+export async function fetchCatalogExams(opts?: { includeInactive?: boolean; token?: string | null }): Promise<
+  CatalogExam[]
+> {
+  const sp = new URLSearchParams();
+  if (opts?.includeInactive && opts.token) {
+    sp.set("includeInactive", "1");
+  }
+  const h: Record<string, string> = {};
+  if (opts?.token) h.Authorization = `Bearer ${opts.token}`;
+  const q = sp.toString();
+  const r = await fetch(`${base()}/catalog/exams${q ? `?${q}` : ""}`, { headers: h });
+  if (!r.ok) throw new Error(`Sınav listesi alınamadı (${r.status})`);
+  const j = (await r.json()) as { exams: CatalogExam[] };
+  return j.exams;
+}
+
 export async function fetchTopics(): Promise<Topic[]> {
-  const r = await fetch(`${base()}/topics`);
+  const { headers, examSlug } = await contentApiAuthParts();
+  const q = examSlug ? `?examSlug=${encodeURIComponent(examSlug)}` : "";
+  const r = await fetch(`${base()}/topics${q}`, { headers });
   if (!r.ok) throw new Error(`Konular alınamadı (${r.status})`);
   const j = (await r.json()) as { topics: Topic[] };
   return j.topics;
@@ -101,7 +148,9 @@ export async function fetchSubtopics(topicId: string | number): Promise<{
   title: string;
   subtopics: Subtopic[];
 }> {
-  const r = await fetch(`${base()}/topics/${encodeURIComponent(String(topicId))}/subtopics`);
+  const { headers, examSlug } = await contentApiAuthParts();
+  const q = examSlug ? `?examSlug=${encodeURIComponent(examSlug)}` : "";
+  const r = await fetch(`${base()}/topics/${encodeURIComponent(String(topicId))}/subtopics${q}`, { headers });
   if (!r.ok) throw new Error(`Alt konular alınamadı (${r.status})`);
   return r.json();
 }
@@ -117,7 +166,9 @@ export async function fetchSubtopicMeta(subtopicId: string | number): Promise<{
   wordGameCount: number;
   mcqCount: number;
 }> {
-  const r = await fetch(`${base()}/subtopics/${encodeURIComponent(String(subtopicId))}`);
+  const { headers, examSlug } = await contentApiAuthParts();
+  const q = examSlug ? `?examSlug=${encodeURIComponent(examSlug)}` : "";
+  const r = await fetch(`${base()}/subtopics/${encodeURIComponent(String(subtopicId))}${q}`, { headers });
   if (!r.ok) throw new Error(`Alt konu bilgisi alınamadı (${r.status})`);
   return r.json();
 }
@@ -165,8 +216,12 @@ export async function fetchCards(
   kind: CardKind;
   cards: StudyCard[];
 }> {
+  const { headers, examSlug } = await contentApiAuthParts();
+  const sp = new URLSearchParams({ kind });
+  if (examSlug) sp.set("examSlug", examSlug);
   const r = await fetch(
-    `${base()}/subtopics/${encodeURIComponent(String(subtopicId))}/cards?kind=${encodeURIComponent(kind)}`,
+    `${base()}/subtopics/${encodeURIComponent(String(subtopicId))}/cards?${sp.toString()}`,
+    { headers },
   );
   if (!r.ok) throw new Error(`Kartlar alınamadı (${r.status})`);
   return r.json();

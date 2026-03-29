@@ -46,7 +46,7 @@ export default function LinkVerifyScreen() {
     }
     setLoading(true);
     try {
-      const res = await verifyOtp(email, code, undefined, undefined, token);
+      const res = await verifyOtp(email, code, undefined, undefined, undefined, token);
       await setSession(res.token, res.user);
       router.replace("/(tabs)/about");
     } catch (e) {

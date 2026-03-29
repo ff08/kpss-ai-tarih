@@ -7,8 +7,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Tarih dersi müfredat kovası (KPSS, YKS, LGS, e-YDS …). İçerik konuları `examId` ile buna bağlanır.
+model ExamCatalog {
+  id          Int      @id @default(autoincrement())
+  /// API / istemci için sabit anahtar (örn. kpss_lisans_tarih)
+  slug        String   @unique
+  label       String
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  topics      Topic[]
+  users       User[]
+  rankDefs    ExamRankDef[]
+
+  @@map("exam_catalog")
+}
+
+/// Sınav bazlı rütbe (mühür) seviyeleri; görsel URL isteğe bağlı, istemci yedek sabitleri kullanır.
+model ExamRankDef {
+  id          Int         @id @default(autoincrement())
+  examId      Int
+  exam        ExamCatalog @relation(fields: [examId], references: [id], onDelete: Cascade)
+  /// 1..N (KPSS Tarih için 23)
+  level       Int
+  title       String
+  /// Rütbe kısa açıklama / karakteristik
+  description String?     @db.Text
+  imageUrl    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([examId, level])
+  @@index([examId])
+  @@map("exam_rank_defs")
+}
+
 model Topic {
   id                    Int                    @id @default(autoincrement())
+  examId                Int
+  exam                  ExamCatalog            @relation(fields: [examId], references: [id], onDelete: Restrict)
   title                 String
   /// Ana sayfada konu başlığının altındaki kısa açıklama
   description           String?
@@ -19,6 +58,8 @@ model Topic {
   wordGameContents      WordGameContent[]
   mcqContents           McqContent[]
   contentIssueReports   ContentIssueReport[]
+
+  @@index([examId])
 }
 
 enum QuestionDifficulty {
@@ -175,13 +216,17 @@ model User {
   email         String?        @unique
   guestClientId String?        @unique
   displayName   String?
+  /// @deprecated Yeni alan: selectedExamId. Eski istemciler için tutulur.
   examTargetId  String?
+  selectedExamId Int?
+  selectedExam   ExamCatalog? @relation(fields: [selectedExamId], references: [id], onDelete: SetNull)
   isGuest       Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   sessions      Session[]
   subscriptions Subscription[]
 
+  @@index([selectedExamId])
   @@map("users")
 }
 

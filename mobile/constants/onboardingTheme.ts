@@ -16,16 +16,16 @@ export const ONBOARDING_THEME = {
   shadow: "rgba(17, 24, 39, 0.06)",
 } as const;
 
-export const ONBOARDING_TOTAL_STEPS = 6;
+/** İsim → sınav → hesap → e-posta → doğrulama (splash/tanıtım ayrı) */
+export const ONBOARDING_TOTAL_STEPS = 5;
 
-/** 1-based adım numarası (welcome=1 … verify=6) */
+/** 1-based adım numarası */
 export const ONBOARDING_STEP = {
-  welcome: 1,
-  name: 2,
-  exam: 3,
-  authChoice: 4,
-  email: 5,
-  verify: 6,
+  name: 1,
+  exam: 2,
+  authChoice: 3,
+  email: 4,
+  verify: 5,
 } as const;
 
 export const OTP_RESEND_COOLDOWN_SEC = 60;

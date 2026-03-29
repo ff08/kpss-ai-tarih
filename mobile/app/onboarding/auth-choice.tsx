@@ -25,7 +25,7 @@ export default function OnboardingAuthChoice() {
     try {
       const profile = await loadOnboardingProfile();
       const guestId = await getOrCreateGuestClientId();
-      const res = await createGuestSession(guestId, profile?.displayName, profile?.examTargetId);
+      const res = await createGuestSession(guestId, profile?.displayName, profile?.examTargetId, profile?.examSlug);
       await setSession(res.token, res.user);
       await finishAndGoHome();
     } catch (e) {

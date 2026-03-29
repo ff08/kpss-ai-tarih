@@ -1,7 +1,9 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -19,6 +21,11 @@ import { ABOUT_POLICIES, POLICY_ORDER, type PolicyId } from "../../constants/abo
 import type { ColorPalette } from "../../constants/theme";
 import { APP_NAME, APP_TAGLINE } from "../../constants/app";
 import { SUPPORT_EMAIL } from "../../constants/support";
+import { examSlugToLegacyExamTargetId } from "../../constants/examCatalog";
+import { fetchCatalogExams, type CatalogExam } from "../../lib/api";
+import { createGuestSession, updateMyExam } from "../../lib/authApi";
+import { getOrCreateGuestClientId } from "../../lib/guestId";
+import { loadOnboardingProfile, saveOnboardingProfile } from "../../lib/onboardingStorage";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -29,12 +36,17 @@ function appVersion(): string {
 
 export default function AboutScreen() {
   const router = useRouter();
-  const { user, premium, refreshUser, token, signOut } = useAuth();
+  const { user, premium, refreshUser, token, signOut, setSession } = useAuth();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const version = appVersion();
   const [policyOpen, setPolicyOpen] = useState<PolicyId | null>(null);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [examPickerOpen, setExamPickerOpen] = useState(false);
+  const [examOptions, setExamOptions] = useState<CatalogExam[]>([]);
+  const [examListLoading, setExamListLoading] = useState(false);
+  const [examSaving, setExamSaving] = useState(false);
 
   const openPolicy = policyOpen ? ABOUT_POLICIES[policyOpen] : null;
 
@@ -47,7 +59,7 @@ export default function AboutScreen() {
   const confirmLogout = useCallback(() => {
     Alert.alert(
       "Çıkış yap",
-      "Oturum sunucuda kapatılır; cihazdaki tüm uygulama önbelleği (çalışma ilerlemesi, oturum, tercihler) silinir ve onboarding ekranına yönlendirilirsiniz.",
+      "Oturum sunucuda kapatılır. Çalışma ilerlemeniz ve uygulama tercihleri bu cihazda saklanır; tekrar girişte kaldığınız yerden devam edebilirsiniz.",
       [
         { text: "Vazgeç", style: "cancel" },
         {
@@ -63,6 +75,61 @@ export default function AboutScreen() {
       ],
     );
   }, [router, signOut]);
+
+  const openExamPicker = useCallback(() => {
+    setExamPickerOpen(true);
+    if (!token) return;
+    setExamListLoading(true);
+    void fetchCatalogExams({ includeInactive: true, token })
+      .then(setExamOptions)
+      .catch(() => {
+        Alert.alert("Bağlantı", "Sınav listesi yüklenemedi.");
+      })
+      .finally(() => setExamListLoading(false));
+  }, [token]);
+
+  const onPickExam = useCallback(
+    async (slug: string) => {
+      if (!token) return;
+      if (slug === user?.selectedExamSlug) {
+        setExamPickerOpen(false);
+        return;
+      }
+      setExamSaving(true);
+      try {
+        await updateMyExam(token, slug);
+        await refreshUser();
+        const prev = await loadOnboardingProfile();
+        const dn = prev?.displayName ?? user?.displayName ?? "Öğrenci";
+        await saveOnboardingProfile({
+          displayName: dn,
+          examTargetId: examSlugToLegacyExamTargetId(slug),
+          examSlug: slug,
+        });
+        setExamPickerOpen(false);
+        Alert.alert("Tamam", "Sınav tercihin güncellendi. Ana sayfadaki konular buna göre yüklenecek.");
+      } catch (e) {
+        Alert.alert("Hata", e instanceof Error ? e.message : "Güncellenemedi");
+      } finally {
+        setExamSaving(false);
+      }
+    },
+    [token, user?.displayName, user?.selectedExamSlug, refreshUser],
+  );
+
+  const onGuestContinue = useCallback(async () => {
+    setGuestLoading(true);
+    try {
+      const profile = await loadOnboardingProfile();
+      const guestId = await getOrCreateGuestClientId();
+      const res = await createGuestSession(guestId, profile?.displayName, profile?.examTargetId, profile?.examSlug);
+      await setSession(res.token, res.user);
+    } catch (e) {
+      Alert.alert("Bağlantı hatası", e instanceof Error ? e.message : "Misafir oturumu açılamadı.");
+    } finally {
+      setGuestLoading(false);
+    }
+  }, [setSession]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
@@ -87,19 +154,60 @@ export default function AboutScreen() {
                 <Ionicons name="mail-outline" size={20} color={colors.accent} />
               </Pressable>
             ) : null}
-            {token ? (
-              <Pressable
-                style={({ pressed }) => [styles.logoutCta, pressed && styles.linkRowPressed]}
-                onPress={confirmLogout}
-                accessibilityRole="button"
-                accessibilityLabel="Çıkış yap"
-              >
-                <Text style={styles.logoutCtaText}>Çıkış yap</Text>
-                <Ionicons name="log-out-outline" size={20} color={colors.muted} />
-              </Pressable>
-            ) : null}
+            <Pressable
+              style={({ pressed }) => [styles.examRow, pressed && styles.linkRowPressed]}
+              onPress={openExamPicker}
+              accessibilityRole="button"
+              accessibilityLabel="Çalıştığım sınavı değiştir"
+            >
+              <View style={styles.examRowText}>
+                <Text style={styles.examRowLabel}>Çalıştığım sınav</Text>
+                <Text style={styles.examRowValue} numberOfLines={2}>
+                  {user.selectedExamLabel ?? user.selectedExamSlug ?? "—"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.logoutCta, pressed && styles.linkRowPressed]}
+              onPress={confirmLogout}
+              accessibilityRole="button"
+              accessibilityLabel="Çıkış yap"
+            >
+              <Text style={styles.logoutCtaText}>Çıkış yap</Text>
+              <Ionicons name="log-out-outline" size={20} color={colors.muted} />
+            </Pressable>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.accountLabel}>Oturum</Text>
+            <Text style={styles.loginLead}>
+              Giriş yaparak veya misafir olarak devam ederek çalışmanızı eşitleyebilirsiniz. Yerel ilerlemeniz bu cihazda saklanır.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [styles.linkEmailCta, { borderTopWidth: 0, marginTop: 8 }, pressed && styles.linkRowPressed]}
+              onPress={() => router.push("/link-email")}
+              accessibilityRole="button"
+              accessibilityLabel="E-posta ile giriş yap"
+            >
+              <Text style={styles.linkEmailCtaText}>E-posta ile giriş yap</Text>
+              <Ionicons name="mail-outline" size={20} color={colors.accent} />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.guestCta, pressed && styles.linkRowPressed]}
+              onPress={() => void onGuestContinue()}
+              disabled={guestLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Misafir olarak devam et"
+            >
+              {guestLoading ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={styles.guestCtaText}>Misafir olarak devam et</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Pressable
@@ -199,6 +307,75 @@ export default function AboutScreen() {
       </ScrollView>
 
       <Modal
+        visible={examPickerOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        transparent={false}
+        onRequestClose={() => !examSaving && setExamPickerOpen(false)}
+      >
+        <SafeAreaView style={styles.modalSafe} edges={["top", "left", "right", "bottom"]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle} numberOfLines={2}>
+              Hangi sınavın tarih müfredatı?
+            </Text>
+            <Pressable
+              onPress={() => !examSaving && setExamPickerOpen(false)}
+              style={({ pressed }) => [styles.modalCloseBtn, pressed && styles.modalClosePressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Kapat"
+              disabled={examSaving}
+            >
+              <Text style={styles.modalCloseText}>Kapat</Text>
+            </Pressable>
+          </View>
+          {examListLoading ? (
+            <View style={styles.examListCenter}>
+              <ActivityIndicator color={colors.accent} size="large" />
+            </View>
+          ) : (
+            <FlatList
+              data={examOptions}
+              keyExtractor={(item) => item.slug}
+              contentContainerStyle={styles.examListContent}
+              renderItem={({ item }) => {
+                const active = item.slug === user?.selectedExamSlug;
+                const inactive = item.isActive === false;
+                return (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.examOption,
+                      active && styles.examOptionActive,
+                      pressed && styles.policyRowPressed,
+                    ]}
+                    onPress={() => void onPickExam(item.slug)}
+                    disabled={examSaving}
+                  >
+                    <View style={styles.examOptionTextWrap}>
+                      <Text style={styles.examOptionTitle}>{item.label}</Text>
+                      {item.description ? (
+                        <Text style={styles.examOptionDesc} numberOfLines={2}>
+                          {item.description}
+                        </Text>
+                      ) : null}
+                      {inactive ? (
+                        <Text style={styles.examSoonBadge}>Yakında / içerik eklenince</Text>
+                      ) : null}
+                    </View>
+                    {active ? <Ionicons name="checkmark-circle" size={22} color={colors.accent} /> : null}
+                  </Pressable>
+                );
+              }}
+            />
+          )}
+          {examSaving ? (
+            <View style={styles.examSavingBar}>
+              <ActivityIndicator color={colors.text} />
+            </View>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
         visible={deleteAccountOpen}
         transparent
         animationType="fade"
@@ -279,6 +456,39 @@ function createStyles(colors: ColorPalette) {
     accountLabel: { color: colors.muted, fontSize: 12, fontWeight: "600", marginBottom: 6 },
     accountName: { color: colors.text, fontSize: 20, fontWeight: "800", marginBottom: 4 },
     accountMeta: { color: colors.muted, fontSize: 14 },
+    examRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    examRowText: { flex: 1, minWidth: 0, paddingRight: 10 },
+    examRowLabel: { color: colors.muted, fontSize: 12, fontWeight: "600", marginBottom: 4 },
+    examRowValue: { color: colors.text, fontSize: 16, fontWeight: "600", lineHeight: 22 },
+    examListCenter: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+    examListContent: { paddingHorizontal: 16, paddingBottom: 32 },
+    examOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      marginBottom: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    examOptionActive: { borderColor: colors.accent, backgroundColor: colors.card },
+    examOptionTextWrap: { flex: 1, minWidth: 0, paddingRight: 10 },
+    examOptionTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+    examOptionDesc: { color: colors.muted, fontSize: 13, marginTop: 4, lineHeight: 18 },
+    examSoonBadge: { color: colors.accent, fontSize: 12, fontWeight: "600", marginTop: 6 },
+    examSavingBar: { paddingVertical: 12, alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
     linkEmailCta: {
       flexDirection: "row",
       alignItems: "center",
@@ -301,6 +511,23 @@ function createStyles(colors: ColorPalette) {
       borderTopColor: colors.border,
     },
     logoutCtaText: { color: colors.muted, fontSize: 15, fontWeight: "600" },
+    loginLead: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 21,
+      marginBottom: 4,
+    },
+    guestCta: {
+      marginTop: 10,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+    },
+    guestCtaText: { color: colors.text, fontSize: 16, fontWeight: "600" },
     deleteAccountBtn: { marginTop: 8, marginBottom: 24, paddingVertical: 16, alignItems: "center" },
     deleteAccountText: { color: "#e57373", fontSize: 15, fontWeight: "600" },
     deleteModalBackdrop: {

@@ -6,7 +6,11 @@ export type AuthUser = {
   id: string;
   email: string | null;
   displayName: string | null;
+  /** @deprecated examSlug / selectedExamSlug kullanın */
   examTargetId: string | null;
+  selectedExamId?: number | null;
+  selectedExamSlug?: string | null;
+  selectedExamLabel?: string | null;
   isGuest: boolean;
 };
 
@@ -33,6 +37,7 @@ export async function verifyOtp(
   code: string,
   displayName?: string,
   examTargetId?: string,
+  examSlug?: string,
   /** Misafir oturumunu e-posta ile birleştirmek için mevcut session token */
   mergeToken?: string | null,
 ): Promise<AuthResponse> {
@@ -46,6 +51,7 @@ export async function verifyOtp(
       code,
       displayName,
       examTargetId,
+      examSlug,
     }),
   });
   const j = (await r.json()) as AuthResponse & { error?: string };
@@ -57,11 +63,12 @@ export async function createGuestSession(
   guestClientId: string,
   displayName?: string,
   examTargetId?: string,
+  examSlug?: string,
 ): Promise<AuthResponse> {
   const r = await fetch(`${base()}/auth/guest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guestClientId, displayName, examTargetId }),
+    body: JSON.stringify({ guestClientId, displayName, examTargetId, examSlug }),
   });
   const j = (await r.json()) as AuthResponse & { error?: string };
   if (!r.ok) throw new Error(j.error ?? "Misafir oturumu açılamadı");
@@ -94,6 +101,21 @@ export async function fetchMe(token: string): Promise<{
     premium: boolean;
     subscription: { plan: string; status: string; currentPeriodEnd: string | null } | null;
   }>;
+}
+
+export async function updateMyExam(
+  token: string,
+  examSlug: string,
+): Promise<{ user: AuthUser }> {
+  const r = await fetch(`${base()}/auth/me`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ examSlug }),
+  });
+  const j = (await r.json()) as { user?: AuthUser; error?: string };
+  if (!r.ok) throw new Error(j.error ?? "Sınav güncellenemedi");
+  if (!j.user) throw new Error("Yanıt geçersiz");
+  return { user: j.user };
 }
 
 export async function fetchBillingPlans(): Promise<{

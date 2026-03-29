@@ -1,3 +1,4 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,17 +14,28 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { RankCard } from "../../components/RankCard";
+import { RankCelebrationModal } from "../../components/RankCelebrationModal";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ProgressRing } from "../../components/ProgressRing";
+import { KPSS_TARIH_RANKS } from "../../constants/ranks";
 import type { ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { APP_NAME, APP_TAGLINE } from "../../constants/app";
 import { UNLOCK_NEXT_TOPIC_PERCENT } from "../../constants/unlock";
-import { KPSS_EXAMS } from "../../constants/exams";
+import { useRankProgress } from "../../hooks/useRankProgress";
 import { getTimeOfDayGreeting } from "../../lib/greeting";
-import { fetchSubtopics, fetchTopics, type Subtopic, type Topic } from "../../lib/api";
-import { loadExamActivePrefs } from "../../lib/examPreferences";
-import { getCountdownTo, nextUpcomingExam, examTargetDate } from "../../lib/examCountdown";
+import {
+  fetchCatalogRanks,
+  fetchSubtopics,
+  fetchTopics,
+  type CatalogRank,
+  type Subtopic,
+  type Topic,
+} from "../../lib/api";
+import { mergeRankDefinitions, type MergedRankDef } from "../../lib/rankDefinitions";
+import { consumeRankCelebrationIfNeeded } from "../../lib/rankCelebrationStorage";
+import { useAuth } from "../../contexts/AuthContext";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import {
   aggregateWeightedPercent,
@@ -117,14 +129,22 @@ export default function TopicsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { getOverall } = useStudyProgress();
+  const { user } = useAuth();
+  const { getOverall, reload: reloadProgress } = useStudyProgress();
+
+  useFocusEffect(
+    useCallback(() => {
+      void reloadProgress();
+    }, [reloadProgress]),
+  );
 
   const [topics, setTopics] = useState<Topic[]>([]);
   const [subtopicsByTopicId, setSubtopicsByTopicId] = useState<Record<number, Subtopic[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState(() => getTimeOfDayGreeting());
-  const [examSubtitle, setExamSubtitle] = useState<string | null>(null);
+  const [apiRanks, setApiRanks] = useState<CatalogRank[]>([]);
+  const [celebrationRank, setCelebrationRank] = useState<MergedRankDef | null>(null);
 
   useEffect(() => {
     setGreeting(getTimeOfDayGreeting());
@@ -132,19 +152,16 @@ export default function TopicsScreen() {
     return () => clearInterval(id);
   }, []);
 
+  const greetingLine = useMemo(() => {
+    const name = user?.displayName?.trim() || "Öğrenci";
+    return `${greeting}, ${name}`;
+  }, [greeting, user?.displayName]);
+
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const [t, prefs] = await Promise.all([fetchTopics(), loadExamActivePrefs()]);
-      const next = nextUpcomingExam(KPSS_EXAMS, prefs, new Date());
-      if (!next) {
-        setExamSubtitle("Takvimde yaklaşan sınav yok");
-      } else {
-        const cd = getCountdownTo(examTargetDate(next.date), new Date());
-        setExamSubtitle(cd.passed ? "Sınav tarihi geçti" : `Sınav ${cd.days} gün sonra`);
-      }
-
+      const t = await fetchTopics();
       const subPairs = await Promise.all(t.map((topic) => fetchSubtopics(topic.id)));
       const map: Record<number, Subtopic[]> = {};
       t.forEach((topic, i) => {
@@ -164,6 +181,26 @@ export default function TopicsScreen() {
   }, [load]);
 
   const sortedTopics = useMemo(() => [...topics].sort((a, b) => a.sortOrder - b.sortOrder), [topics]);
+
+  const mergedRanks = useMemo(() => mergeRankDefinitions(KPSS_TARIH_RANKS, apiRanks), [apiRanks]);
+
+  const rankProgress = useRankProgress(sortedTopics, subtopicsByTopicId, mergedRanks);
+
+  const rankCardDisplay = useMemo(
+    () => rankProgress.currentRank ?? mergedRanks[0] ?? null,
+    [rankProgress.currentRank, mergedRanks],
+  );
+
+  useEffect(() => {
+    if (loading || mergedRanks.length === 0) return;
+    const cu = rankProgress.completedUnitCount;
+    void consumeRankCelebrationIfNeeded(cu).then((level) => {
+      if (level !== null) {
+        const def = mergedRanks[level - 1];
+        if (def) setCelebrationRank(def);
+      }
+    });
+  }, [loading, mergedRanks, rankProgress.completedUnitCount]);
 
   const topicRows = useMemo<TopicRow[]>(() => {
     const percents = sortedTopics.map((topic) =>
@@ -200,7 +237,7 @@ export default function TopicsScreen() {
   if (loading && topics.length === 0) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title={APP_NAME} aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title={APP_NAME} aboveTitle={greetingLine} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.muted}>Konular yükleniyor…</Text>
@@ -212,7 +249,7 @@ export default function TopicsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title={APP_NAME} aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title={APP_NAME} aboveTitle={greetingLine} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>Bağlantı hatası</Text>
           <Text style={styles.muted}>{error}</Text>
@@ -230,12 +267,9 @@ export default function TopicsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <ScreenHeader
-        title={APP_NAME}
-        aboveTitle={greeting}
-        tagline={APP_TAGLINE}
-        subtitle={examSubtitle ?? undefined}
-      />
+      <ScreenHeader title={APP_NAME} aboveTitle={greetingLine} tagline={APP_TAGLINE} />
+
+      <RankCard rankState={rankProgress} displayRank={rankCardDisplay} colors={colors} />
 
       <View style={styles.summary}>
         <View style={styles.summaryTextCol}>
@@ -262,6 +296,13 @@ export default function TopicsScreen() {
             onLockedPress={onLockedPress}
           />
         )}
+      />
+
+      <RankCelebrationModal
+        visible={celebrationRank !== null}
+        rank={celebrationRank}
+        colors={colors}
+        onClose={() => setCelebrationRank(null)}
       />
     </SafeAreaView>
   );

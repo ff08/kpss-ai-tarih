@@ -15,15 +15,24 @@ const mufredatJson = require("./kpss-tarih-mufredat.json") as {
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.wordGameContent.deleteMany();
-  await prisma.openQaContent.deleteMany();
-  await prisma.mcqContent.deleteMany();
-  await prisma.subtopic.deleteMany();
-  await prisma.topic.deleteMany();
+  const exam = await prisma.examCatalog.upsert({
+    where: { slug: "kpss_lisans_tarih" },
+    create: {
+      slug: "kpss_lisans_tarih",
+      label: "KPSS Lisans Tarih",
+      description: "KPSS Genel Yetenek / Genel Kültür — Tarih",
+      sortOrder: 0,
+      isActive: true,
+    },
+    update: {},
+  });
+
+  await prisma.topic.deleteMany({ where: { examId: exam.id } });
 
   for (const u of mufredatJson.kpss_tarih_tam_mufredat) {
     await prisma.topic.create({
       data: {
+        examId: exam.id,
         title: u.ana_baslik,
         sortOrder: u.unite_no,
         description: u.aciklama,

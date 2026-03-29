@@ -40,7 +40,13 @@ export default function OnboardingVerify() {
     setLoading(true);
     try {
       const profile = await loadOnboardingProfile();
-      const res = await verifyOtp(email, code, profile?.displayName, profile?.examTargetId);
+      const res = await verifyOtp(
+        email,
+        code,
+        profile?.displayName,
+        profile?.examTargetId,
+        profile?.examSlug,
+      );
       await setSession(res.token, res.user);
       await setOnboardingComplete(true);
       await refreshOnboardingFromStorage();

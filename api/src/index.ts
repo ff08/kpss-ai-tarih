@@ -3,9 +3,36 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { Prisma, PrismaClient, type ContentDatasetKind } from "@prisma/client";
 import { z } from "zod";
-import { registerAuthRoutes } from "./authRoutes";
+import { authHeaderToken, registerAuthRoutes } from "./authRoutes";
+import { getDefaultExamId } from "./examHelpers";
 
 const prisma = new PrismaClient();
+
+/** Konu listesi / alt konu için sınav kapsamı: önce Bearer oturum, yoksa ?examSlug=, yoksa varsayılan KPSS Lisans Tarih */
+async function resolveExamIdForTopicsRequest(request: {
+  headers: { authorization?: string };
+  query: unknown;
+}): Promise<number | null> {
+  const token = authHeaderToken(request.headers.authorization);
+  if (token) {
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: { select: { selectedExamId: true } } },
+    });
+    if (session && session.expiresAt >= new Date() && session.user.selectedExamId != null) {
+      return session.user.selectedExamId;
+    }
+  }
+  const q = request.query as { examSlug?: string };
+  if (q.examSlug) {
+    const ex = await prisma.examCatalog.findFirst({
+      where: { slug: q.examSlug },
+      select: { id: true },
+    });
+    return ex?.id ?? null;
+  }
+  return getDefaultExamId(prisma);
+}
 
 const contentIssueBodySchema = z.object({
   topicId: z.number().int().positive(),
@@ -95,8 +122,52 @@ async function build() {
 
   app.get("/health", async () => ({ ok: true }));
 
-  app.get("/topics", async () => {
+  app.get("/catalog/exams", async (request, reply) => {
+    const q = request.query as { includeInactive?: string };
+    const wantAll = q.includeInactive === "1" || q.includeInactive === "true";
+    if (wantAll) {
+      const token = authHeaderToken(request.headers.authorization);
+      if (!token) {
+        return reply.status(401).send({ error: "Yetkisiz" });
+      }
+      const session = await prisma.session.findUnique({ where: { token } });
+      if (!session || session.expiresAt < new Date()) {
+        return reply.status(401).send({ error: "Oturum geçersiz" });
+      }
+      const exams = await prisma.examCatalog.findMany({
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, slug: true, label: true, description: true, sortOrder: true, isActive: true },
+      });
+      return { exams };
+    }
+    const exams = await prisma.examCatalog.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, slug: true, label: true, description: true, sortOrder: true },
+    });
+    return { exams };
+  });
+
+  app.get("/catalog/ranks", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
+    const ranks = await prisma.examRankDef.findMany({
+      where: { examId },
+      orderBy: { level: "asc" },
+      select: { level: true, title: true, description: true, imageUrl: true },
+    });
+    return { ranks };
+  });
+
+  app.get("/topics", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
     const topics = await prisma.topic.findMany({
+      where: { examId },
       orderBy: { sortOrder: "asc" },
       select: { id: true, title: true, description: true, sortOrder: true },
     });
@@ -195,13 +266,17 @@ async function build() {
   });
 
   app.get("/topics/:topicId/subtopics", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
     const { topicId } = request.params as { topicId: string };
     const topicIdNum = parsePositiveIntParam(topicId);
     if (topicIdNum === null) {
       return reply.status(404).send({ error: "Konu bulunamadı" });
     }
-    const topic = await prisma.topic.findUnique({
-      where: { id: topicIdNum },
+    const topic = await prisma.topic.findFirst({
+      where: { id: topicIdNum, examId },
       include: {
         subtopics: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, description: true, sortOrder: true } },
       },
@@ -263,13 +338,17 @@ async function build() {
   });
 
   app.get("/subtopics/:subtopicId", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
     const { subtopicId } = request.params as { subtopicId: string };
     const subtopicIdNum = parsePositiveIntParam(subtopicId);
     if (subtopicIdNum === null) {
       return reply.status(404).send({ error: "Alt konu bulunamadı" });
     }
-    const sub = await prisma.subtopic.findUnique({
-      where: { id: subtopicIdNum },
+    const sub = await prisma.subtopic.findFirst({
+      where: { id: subtopicIdNum, topic: { examId } },
       include: { topic: { select: { id: true, title: true } } },
     });
     if (!sub) {
@@ -295,6 +374,10 @@ async function build() {
   });
 
   app.get("/subtopics/:subtopicId/cards", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
     const { subtopicId } = request.params as { subtopicId: string };
     const subtopicIdNum = parsePositiveIntParam(subtopicId);
     if (subtopicIdNum === null) {
@@ -304,8 +387,8 @@ async function build() {
     const allowed = ["INFORMATION", "OPEN_QA", "MCQ", "WORD_GAME"] as const;
     const kind = allowed.includes(q.kind as (typeof allowed)[number]) ? (q.kind as (typeof allowed)[number]) : "INFORMATION";
 
-    const sub = await prisma.subtopic.findUnique({
-      where: { id: subtopicIdNum },
+    const sub = await prisma.subtopic.findFirst({
+      where: { id: subtopicIdNum, topic: { examId } },
       include: {
         topic: { select: { id: true, title: true } },
       },

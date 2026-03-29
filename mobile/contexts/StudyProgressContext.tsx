@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "./AuthContext";
 import type { CardKind } from "../lib/api";
 import {
   loadProgressMap,
@@ -33,6 +34,7 @@ type StudyProgressContextValue = {
 const StudyProgressContext = createContext<StudyProgressContextValue | null>(null);
 
 export function StudyProgressProvider({ children }: { children: ReactNode }) {
+  const { token, ready } = useAuth();
   const [progress, setProgress] = useState<ProgressMap>({});
   const progressRef = useRef<ProgressMap>({});
 
@@ -43,8 +45,9 @@ export function StudyProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
     void reload();
-  }, [reload]);
+  }, [ready, token, reload]);
 
   const recordScroll = useCallback(
     async (subtopicId: number, mode: CardKind, furthestIndex: number, total: number) => {

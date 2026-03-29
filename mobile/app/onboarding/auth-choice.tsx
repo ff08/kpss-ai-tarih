@@ -1,18 +1,17 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { OnboardingChrome } from "../../components/onboarding/OnboardingChrome";
+import { onboardingStyles } from "../../components/onboarding/onboardingStyles";
+import { ONBOARDING_STEP, ONBOARDING_THEME, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingTheme";
 import { useAuth } from "../../contexts/AuthContext";
 import { createGuestSession } from "../../lib/authApi";
 import { getOrCreateGuestClientId } from "../../lib/guestId";
 import { loadOnboardingProfile, setOnboardingComplete } from "../../lib/onboardingStorage";
-import { useTheme } from "../../contexts/ThemeContext";
 
 export default function OnboardingAuthChoice() {
   const router = useRouter();
-  const { colors } = useTheme();
   const { setSession, refreshOnboardingFromStorage } = useAuth();
-  const s = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState<"guest" | null>(null);
 
   const finishAndGoHome = async () => {
@@ -37,64 +36,59 @@ export default function OnboardingAuthChoice() {
   };
 
   return (
-    <OnboardingChrome progress={0.78}>
-      <View style={s.flex}>
-        <Text style={s.eyebrow}>Son adım</Text>
-        <Text style={s.title}>Hesabını kaydet veya misafir devam et</Text>
-        <Text style={s.sub}>Daha sonra e-posta ile giriş yaparak verilerini eşleştirebilirsin.</Text>
+    <OnboardingChrome
+      progress={ONBOARDING_STEP.authChoice / ONBOARDING_TOTAL_STEPS}
+      stepCurrent={ONBOARDING_STEP.authChoice}
+      stepTotal={ONBOARDING_TOTAL_STEPS}
+    >
+      <View style={styles.flex}>
+        <Text style={styles.title}>Hesabını kaydet veya misafir devam et</Text>
+        <Text style={styles.subtitle}>
+          E-posta ile giriş yaparak ilerlemenizi cihazlar arasında eşleştirebilirsiniz. İsterseniz sonra da Hesabım
+          üzerinden bağlayabilirsiniz.
+        </Text>
 
-        <Pressable
-          style={({ pressed }) => [s.primary, pressed && s.pressed]}
-          onPress={() => router.push("/onboarding/email")}
-          disabled={loading !== null}
-        >
-          <Text style={s.primaryText}>E-postayla giriş yap</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            style={({ pressed }) => [onboardingStyles.primaryBtn, { marginBottom: 12 }, pressed && onboardingStyles.primaryBtnPressed]}
+            onPress={() => router.push("/onboarding/email")}
+            disabled={loading !== null}
+          >
+            <Text style={onboardingStyles.primaryBtnText}>E-postayla giriş yap</Text>
+          </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [s.secondary, pressed && s.pressed]}
-          onPress={() => void onGuest()}
-          disabled={loading !== null}
-        >
-          {loading === "guest" ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={s.secondaryText}>Misafir olarak devam et</Text>
-          )}
-        </Pressable>
+          <Pressable
+            style={({ pressed }) => [onboardingStyles.secondaryBtn, pressed && { opacity: 0.92 }]}
+            onPress={() => void onGuest()}
+            disabled={loading !== null}
+          >
+            {loading === "guest" ? (
+              <ActivityIndicator color={ONBOARDING_THEME.text} />
+            ) : (
+              <Text style={onboardingStyles.secondaryBtnText}>Misafir olarak devam et</Text>
+            )}
+          </Pressable>
+        </View>
 
-        <Text style={s.legal}>
-          Devam ederek verilerinin cihazında ve sunucuda işlenmesini kabul etmiş olursun. (Yakında: Kullanım Şartları)
+        <Text style={styles.legal}>
+          Devam ederek verilerinizin işlenmesini kabul etmiş olursunuz (Gizlilik ve Kullanım politikaları uygulama
+          içinde).
         </Text>
       </View>
     </OnboardingChrome>
   );
 }
 
-function createStyles(colors: { text: string; muted: string; card: string; border: string; accent: string; onAccent: string }) {
-  return StyleSheet.create({
-    flex: { flex: 1, paddingTop: 8 },
-    eyebrow: { fontSize: 14, color: colors.muted, textAlign: "center", marginBottom: 12 },
-    title: { fontSize: 22, fontWeight: "800", color: colors.text, textAlign: "center", marginBottom: 12 },
-    sub: { fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: "center", marginBottom: 28 },
-    primary: {
-      backgroundColor: colors.accent,
-      paddingVertical: 16,
-      borderRadius: 14,
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    secondary: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingVertical: 16,
-      borderRadius: 14,
-      alignItems: "center",
-    },
-    pressed: { opacity: 0.9 },
-    primaryText: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
-    secondaryText: { color: colors.text, fontSize: 16, fontWeight: "600" },
-    legal: { marginTop: "auto", marginBottom: 28, fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center" },
-  });
-}
+const styles = StyleSheet.create({
+  flex: { flex: 1, paddingTop: 4 },
+  actions: { marginTop: 8, gap: 0 },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: ONBOARDING_THEME.text,
+    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
+  subtitle: { fontSize: 14, lineHeight: 21, color: ONBOARDING_THEME.muted, marginBottom: 20 },
+  legal: { marginTop: "auto", marginBottom: 28, fontSize: 12, lineHeight: 18, color: ONBOARDING_THEME.muted },
+});

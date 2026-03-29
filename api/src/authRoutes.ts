@@ -142,8 +142,60 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
 
     await prisma.emailOtpChallenge.delete({ where: { id: challenge.id } });
 
-    let user = await prisma.user.findUnique({ where: { email: normalized } });
-    if (!user) {
+    const mergeToken = authHeaderToken(request.headers.authorization);
+    let guestUser: { id: string; isGuest: boolean; displayName: string | null; examTargetId: string | null } | null =
+      null;
+    if (mergeToken) {
+      const mergeSession = await prisma.session.findUnique({
+        where: { token: mergeToken },
+        include: { user: true },
+      });
+      if (mergeSession && mergeSession.expiresAt >= new Date()) {
+        if (!mergeSession.user.isGuest) {
+          return reply.status(400).send({ error: "Bu oturum zaten e-postalı hesaba bağlı" });
+        }
+        guestUser = mergeSession.user;
+      }
+    }
+
+    const emailUser = await prisma.user.findUnique({ where: { email: normalized } });
+    let user: Awaited<ReturnType<typeof prisma.user.findUnique>>;
+
+    if (guestUser) {
+      if (emailUser && emailUser.id !== guestUser.id) {
+        await prisma.session.deleteMany({ where: { userId: guestUser.id } });
+        await prisma.user.update({
+          where: { id: emailUser.id },
+          data: {
+            displayName: emailUser.displayName ?? guestUser.displayName,
+            examTargetId: emailUser.examTargetId ?? guestUser.examTargetId,
+            isGuest: false,
+          },
+        });
+        await prisma.user.delete({ where: { id: guestUser.id } });
+        user = await prisma.user.findUnique({ where: { id: emailUser.id } });
+      } else if (!emailUser) {
+        user = await prisma.user.update({
+          where: { id: guestUser.id },
+          data: {
+            email: normalized,
+            isGuest: false,
+            guestClientId: null,
+            displayName: displayName?.trim() ?? guestUser.displayName,
+            examTargetId: examTargetId ?? guestUser.examTargetId,
+          },
+        });
+      } else {
+        user = await prisma.user.update({
+          where: { id: guestUser.id },
+          data: {
+            displayName: displayName?.trim() ?? guestUser.displayName,
+            examTargetId: examTargetId ?? guestUser.examTargetId,
+            isGuest: false,
+          },
+        });
+      }
+    } else if (!emailUser) {
       user = await prisma.user.create({
         data: {
           email: normalized,
@@ -154,13 +206,17 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       });
     } else {
       user = await prisma.user.update({
-        where: { id: user.id },
+        where: { id: emailUser.id },
         data: {
-          displayName: displayName?.trim() ?? user.displayName,
-          examTargetId: examTargetId ?? user.examTargetId,
+          displayName: displayName?.trim() ?? emailUser.displayName,
+          examTargetId: examTargetId ?? emailUser.examTargetId,
           isGuest: false,
         },
       });
+    }
+
+    if (!user) {
+      return reply.status(500).send({ error: "İşlem tamamlanamadı" });
     }
 
     const token = newSessionToken();
@@ -168,10 +224,16 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     await prisma.session.deleteMany({ where: { userId: user.id } });
     await prisma.session.create({ data: { token, userId: user.id, expiresAt } });
 
+    const logAction = guestUser
+      ? emailUser && emailUser.id !== guestUser.id
+        ? "otp_verify_merge_guest"
+        : "otp_verify_guest_link_email"
+      : "otp_verify_ok";
+
     await prisma.appLog.create({
       data: {
         level: AppLogLevel.INFO,
-        action: "otp_verify_ok",
+        action: logAction,
         userId: user.id,
         meta: { email: normalized } as object,
       },
@@ -242,6 +304,30 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
         isGuest: user.isGuest,
       },
     };
+  });
+
+  /** Geçerli oturumu sunucuda sonlandırır (token geçersiz olur). */
+  app.post("/auth/logout", async (request, reply) => {
+    const token = authHeaderToken(request.headers.authorization);
+    if (!token) {
+      return reply.status(401).send({ error: "Yetkisiz" });
+    }
+    const sess = await prisma.session.findUnique({
+      where: { token },
+      select: { userId: true },
+    });
+    await prisma.session.deleteMany({ where: { token } });
+    if (sess) {
+      await prisma.appLog.create({
+        data: {
+          level: AppLogLevel.INFO,
+          action: "logout",
+          userId: sess.userId,
+          meta: {} as object,
+        },
+      });
+    }
+    return { ok: true };
   });
 
   app.get("/auth/me", async (request, reply) => {

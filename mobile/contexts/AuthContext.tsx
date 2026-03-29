@@ -9,8 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthUser } from "../lib/authApi";
-import { fetchMe } from "../lib/authApi";
+import { fetchMe, logoutSession } from "../lib/authApi";
 import { isOnboardingComplete as loadOnboardingDone } from "../lib/onboardingStorage";
+import { useTheme } from "./ThemeContext";
 
 const TOKEN_KEY = "@tarihai_session_token_v1";
 
@@ -31,6 +32,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { setMode } = useTheme();
   const [ready, setReady] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(true);
   const [token, setToken] = useState<string | null>(null);
@@ -79,11 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   const signOut = useCallback(async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
+    const t = token;
+    if (t) await logoutSession(t);
+    await AsyncStorage.clear();
+    setMode("dark");
     setToken(null);
     setUser(null);
     setPremium(false);
-  }, []);
+    setNeedsOnboarding(true);
+  }, [token, setMode]);
 
   const refreshOnboardingFromStorage = useCallback(async () => {
     const done = await loadOnboardingDone();

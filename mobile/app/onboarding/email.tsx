@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,14 +11,14 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { OnboardingChrome } from "../../components/onboarding/OnboardingChrome";
+import { onboardingStyles } from "../../components/onboarding/onboardingStyles";
+import { ONBOARDING_STEP, ONBOARDING_THEME, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingTheme";
 import { sendOtp } from "../../lib/authApi";
-import { useTheme } from "../../contexts/ThemeContext";
 
 export default function OnboardingEmail() {
   const router = useRouter();
-  const { colors } = useTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,64 +42,73 @@ export default function OnboardingEmail() {
   };
 
   return (
-    <OnboardingChrome progress={0.88}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.flex}>
-        <View style={s.body}>
-          <Text style={s.title}>E-posta adresin nedir?</Text>
-          <TextInput
-            value={email}
-            onChangeText={(t) => {
-              setEmail(t);
-              setErr(null);
-            }}
-            placeholder="ornek@adres.com"
-            placeholderTextColor={colors.muted}
-            style={[s.input, err ? s.inputErr : null]}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-            onSubmitEditing={() => void onContinue()}
-          />
-          {err ? (
-            <Text style={s.errText}>
-              ⚠ {err}
-            </Text>
-          ) : null}
+    <OnboardingChrome
+      progress={ONBOARDING_STEP.email / ONBOARDING_TOTAL_STEPS}
+      stepCurrent={ONBOARDING_STEP.email}
+      stepTotal={ONBOARDING_TOTAL_STEPS}
+    >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+        <View style={styles.body}>
+          <Text style={styles.title}>E-posta adresin nedir?</Text>
+          <Text style={styles.subtitle}>Adresine tek kullanımlık doğrulama kodu göndereceğiz.</Text>
+          <View style={[onboardingStyles.input, styles.inputRow, err ? onboardingStyles.inputErr : null]}>
+            <Ionicons name="mail-outline" size={22} color={ONBOARDING_THEME.muted} style={styles.inputIcon} />
+            <TextInput
+              value={email}
+              onChangeText={(t) => {
+                setEmail(t);
+                setErr(null);
+              }}
+              placeholder="ornek@adres.com"
+              placeholderTextColor={ONBOARDING_THEME.muted}
+              style={styles.inputField}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => void onContinue()}
+            />
+          </View>
+          {err ? <Text style={styles.errText}>{err}</Text> : null}
         </View>
-        <Pressable style={({ pressed }) => [s.primary, pressed && s.pressed]} onPress={() => void onContinue()} disabled={loading}>
-          {loading ? <ActivityIndicator color={colors.onAccent} /> : <Text style={s.primaryText}>Devam et</Text>}
+        <Pressable
+          style={({ pressed }) => [
+            onboardingStyles.primaryBtn,
+            onboardingStyles.primaryBtnSticky,
+            pressed && onboardingStyles.primaryBtnPressed,
+          ]}
+          onPress={() => void onContinue()}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={ONBOARDING_THEME.onPrimary} />
+          ) : (
+            <Text style={onboardingStyles.primaryBtnText}>Kod gönder</Text>
+          )}
         </Pressable>
       </KeyboardAvoidingView>
     </OnboardingChrome>
   );
 }
 
-function createStyles(colors: { text: string; muted: string; card: string; border: string; accent: string; onAccent: string }) {
-  return StyleSheet.create({
-    flex: { flex: 1 },
-    body: { flex: 1, paddingTop: 8 },
-    title: { fontSize: 22, fontWeight: "800", color: colors.text, textAlign: "center", marginBottom: 24 },
-    input: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 14,
-      paddingHorizontal: 18,
-      paddingVertical: 16,
-      fontSize: 17,
-      color: colors.text,
-    },
-    inputErr: { borderColor: "#e57373" },
-    errText: { color: "#e57373", fontSize: 13, marginTop: 8 },
-    primary: {
-      marginBottom: 32,
-      backgroundColor: colors.accent,
-      paddingVertical: 16,
-      borderRadius: 14,
-      alignItems: "center",
-    },
-    pressed: { opacity: 0.92 },
-    primaryText: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
-  });
-}
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  body: { flex: 1, paddingTop: 4 },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: ONBOARDING_THEME.text,
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  subtitle: { fontSize: 15, lineHeight: 22, color: ONBOARDING_THEME.muted, marginBottom: 24 },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  inputIcon: { marginRight: 10 },
+  inputField: { flex: 1, fontSize: 17, color: ONBOARDING_THEME.text, paddingVertical: 0 },
+  errText: { color: ONBOARDING_THEME.error, fontSize: 13, marginTop: 10 },
+});

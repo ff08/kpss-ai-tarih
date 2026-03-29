@@ -7,27 +7,31 @@ import { ONBOARDING_THEME } from "../../constants/onboardingTheme";
 
 type Props = {
   children: ReactNode;
-  /** 0–1 — üst çubuk doluluk oranı */
-  progress: number;
+  title: string;
+  subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
-  /** Sağ üst "2 / 6" göstergesi */
+  /** Küçük adım göstergesi (örn. e-posta akışı 1/2) */
   stepCurrent?: number;
   stepTotal?: number;
+  /** İnce üst ilerleme çubuğu (0–1) */
+  progress?: number;
 };
 
-export function OnboardingChrome({
+export function AuthFlowChrome({
   children,
-  progress,
+  title,
+  subtitle,
   showBack = true,
   onBack,
   stepCurrent,
   stepTotal,
+  progress,
 }: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const p = Math.min(1, Math.max(0, progress));
   const showStep = typeof stepCurrent === "number" && typeof stepTotal === "number" && stepTotal > 0;
+  const p = progress !== undefined ? Math.min(1, Math.max(0, progress)) : null;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
@@ -45,17 +49,25 @@ export function OnboardingChrome({
         ) : (
           <View style={styles.sidePlaceholder} />
         )}
-        <View style={[styles.track, { backgroundColor: ONBOARDING_THEME.trackBg }]}>
-          <View style={[styles.fill, { width: `${p * 100}%`, backgroundColor: ONBOARDING_THEME.primary }]} />
-        </View>
+        {p !== null ? (
+          <View style={[styles.track, { backgroundColor: ONBOARDING_THEME.trackBg }]}>
+            <View style={[styles.fill, { width: `${p * 100}%`, backgroundColor: ONBOARDING_THEME.primary }]} />
+          </View>
+        ) : (
+          <View style={styles.trackSpacer} />
+        )}
         {showStep ? (
-          <Text style={styles.stepText} accessibilityLabel={`Adım ${stepCurrent} / ${stepTotal}`}>
+          <Text style={styles.stepText}>
             {stepCurrent} / {stepTotal}
           </Text>
         ) : (
           <View style={styles.sidePlaceholder} />
         )}
       </View>
+
+      <Text style={styles.title}>{title}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+
       {children}
     </View>
   );
@@ -71,10 +83,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   backBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "flex-start" },
-  sidePlaceholder: { width: 40, alignItems: "flex-end" },
+  sidePlaceholder: { width: 40 },
+  track: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  trackSpacer: { flex: 1 },
+  fill: { height: "100%", borderRadius: 999 },
   stepText: {
     minWidth: 40,
     fontSize: 14,
@@ -82,14 +102,17 @@ const styles = StyleSheet.create({
     color: ONBOARDING_THEME.muted,
     textAlign: "right",
   },
-  track: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-    overflow: "hidden",
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: ONBOARDING_THEME.text,
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
-  fill: {
-    height: "100%",
-    borderRadius: 999,
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: ONBOARDING_THEME.muted,
+    marginBottom: 24,
   },
 });

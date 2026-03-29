@@ -32,6 +32,8 @@ function RootLayoutInner() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="premium" options={{ animation: "slide_from_bottom" }} />
+        <Stack.Screen name="link-email" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen name="link-verify" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="topic/[topicId]" />
         <Stack.Screen name="subtopic/[subtopicId]" />
       </Stack>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,13 +10,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { OnboardingChrome } from "../../components/onboarding/OnboardingChrome";
+import { onboardingStyles } from "../../components/onboarding/onboardingStyles";
+import { ONBOARDING_STEP, ONBOARDING_THEME, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingTheme";
 import { loadOnboardingProfile, saveOnboardingProfile } from "../../lib/onboardingStorage";
-import { useTheme } from "../../contexts/ThemeContext";
 
 export default function OnboardingName() {
   const router = useRouter();
-  const { colors } = useTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -32,55 +31,51 @@ export default function OnboardingName() {
   };
 
   return (
-    <OnboardingChrome progress={0.35}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.flex}>
-        <View style={s.body}>
-          <Text style={s.eyebrow}>Çalışma profilini kişiselleştirelim ✨</Text>
-          <Text style={s.title}>Adın ne?</Text>
+    <OnboardingChrome
+      progress={ONBOARDING_STEP.name / ONBOARDING_TOTAL_STEPS}
+      stepCurrent={ONBOARDING_STEP.name}
+      stepTotal={ONBOARDING_TOTAL_STEPS}
+    >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+        <View style={styles.body}>
+          <Text style={styles.title}>Sana nasıl seslenelim?</Text>
+          <Text style={styles.subtitle}>Önce kısa bir isim veya takma ad yaz.</Text>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Adın"
-            placeholderTextColor={colors.muted}
-            style={s.input}
+            placeholderTextColor={ONBOARDING_THEME.muted}
+            style={onboardingStyles.input}
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="next"
             onSubmitEditing={() => void onNext()}
           />
         </View>
-        <Pressable style={({ pressed }) => [s.primary, pressed && s.pressed]} onPress={() => void onNext()}>
-          <Text style={s.primaryText}>Devam et</Text>
+        <Pressable
+          style={({ pressed }) => [
+            onboardingStyles.primaryBtn,
+            onboardingStyles.primaryBtnSticky,
+            pressed && onboardingStyles.primaryBtnPressed,
+          ]}
+          onPress={() => void onNext()}
+        >
+          <Text style={onboardingStyles.primaryBtnText}>Devam et</Text>
         </Pressable>
       </KeyboardAvoidingView>
     </OnboardingChrome>
   );
 }
 
-function createStyles(colors: { text: string; muted: string; card: string; border: string; accent: string; onAccent: string }) {
-  return StyleSheet.create({
-    flex: { flex: 1 },
-    body: { flex: 1, paddingTop: 8 },
-    eyebrow: { fontSize: 14, color: colors.muted, textAlign: "center", marginBottom: 12 },
-    title: { fontSize: 26, fontWeight: "800", color: colors.text, textAlign: "center", marginBottom: 28 },
-    input: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 14,
-      paddingHorizontal: 18,
-      paddingVertical: 16,
-      fontSize: 17,
-      color: colors.text,
-    },
-    primary: {
-      marginBottom: 32,
-      backgroundColor: colors.accent,
-      paddingVertical: 16,
-      borderRadius: 14,
-      alignItems: "center",
-    },
-    pressed: { opacity: 0.92 },
-    primaryText: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
-  });
-}
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  body: { flex: 1, paddingTop: 4 },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: ONBOARDING_THEME.text,
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  subtitle: { fontSize: 15, lineHeight: 22, color: ONBOARDING_THEME.muted, marginBottom: 28 },
+});

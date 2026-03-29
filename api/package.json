@@ -14,6 +14,7 @@
     "db:import-info-topic1": "tsx scripts/import-information-topic-1.ts",
     "db:seed-word-game-topic1": "tsx scripts/seed-word-game-topic1.ts",
     "db:generate-info-topic1-json": "tsx scripts/generate-information-topic-1-json.ts",
+    "db:wipe-users": "tsx scripts/wipe-user-tables.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

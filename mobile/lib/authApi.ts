@@ -33,10 +33,14 @@ export async function verifyOtp(
   code: string,
   displayName?: string,
   examTargetId?: string,
+  /** Misafir oturumunu e-posta ile birleştirmek için mevcut session token */
+  mergeToken?: string | null,
 ): Promise<AuthResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (mergeToken) headers.Authorization = `Bearer ${mergeToken}`;
   const r = await fetch(`${base()}/auth/otp/verify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       email: email.trim().toLowerCase(),
       code,
@@ -62,6 +66,18 @@ export async function createGuestSession(
   const j = (await r.json()) as AuthResponse & { error?: string };
   if (!r.ok) throw new Error(j.error ?? "Misafir oturumu açılamadı");
   return j as AuthResponse;
+}
+
+/** Oturumu sunucuda kapatır; hata olsa bile istemci çıkışına devam edilir. */
+export async function logoutSession(token: string): Promise<void> {
+  try {
+    await fetch(`${base()}/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    /* ağ hatası — yerel temizlik yine de yapılır */
+  }
 }
 
 export async function fetchMe(token: string): Promise<{

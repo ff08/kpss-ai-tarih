@@ -1,6 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +18,7 @@ import { ScreenHeader } from "../../components/ScreenHeader";
 import { ABOUT_POLICIES, POLICY_ORDER, type PolicyId } from "../../constants/aboutPolicies";
 import type { ColorPalette } from "../../constants/theme";
 import { APP_NAME, APP_TAGLINE } from "../../constants/app";
+import { SUPPORT_EMAIL } from "../../constants/support";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -27,11 +29,12 @@ function appVersion(): string {
 
 export default function AboutScreen() {
   const router = useRouter();
-  const { user, premium, refreshUser, token } = useAuth();
+  const { user, premium, refreshUser, token, signOut } = useAuth();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const version = appVersion();
   const [policyOpen, setPolicyOpen] = useState<PolicyId | null>(null);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   const openPolicy = policyOpen ? ABOUT_POLICIES[policyOpen] : null;
 
@@ -40,6 +43,26 @@ export default function AboutScreen() {
       if (token) void refreshUser();
     }, [token, refreshUser]),
   );
+
+  const confirmLogout = useCallback(() => {
+    Alert.alert(
+      "Çıkış yap",
+      "Oturum sunucuda kapatılır; cihazdaki tüm uygulama önbelleği (çalışma ilerlemesi, oturum, tercihler) silinir ve onboarding ekranına yönlendirilirsiniz.",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Çıkış yap",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              await signOut();
+              router.replace("/");
+            })();
+          },
+        },
+      ],
+    );
+  }, [router, signOut]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
@@ -53,6 +76,28 @@ export default function AboutScreen() {
             <Text style={styles.accountMeta}>
               {user.email ?? "Misafir"} · {premium ? "Premium" : "Ücretsiz"}
             </Text>
+            {user.isGuest ? (
+              <Pressable
+                style={({ pressed }) => [styles.linkEmailCta, pressed && styles.linkRowPressed]}
+                onPress={() => router.push("/link-email")}
+                accessibilityRole="button"
+                accessibilityLabel="E-posta ile giriş yap"
+              >
+                <Text style={styles.linkEmailCtaText}>E-posta ile giriş yap</Text>
+                <Ionicons name="mail-outline" size={20} color={colors.accent} />
+              </Pressable>
+            ) : null}
+            {token ? (
+              <Pressable
+                style={({ pressed }) => [styles.logoutCta, pressed && styles.linkRowPressed]}
+                onPress={confirmLogout}
+                accessibilityRole="button"
+                accessibilityLabel="Çıkış yap"
+              >
+                <Text style={styles.logoutCtaText}>Çıkış yap</Text>
+                <Ionicons name="log-out-outline" size={20} color={colors.muted} />
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -142,7 +187,48 @@ export default function AboutScreen() {
             );
           })}
         </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.deleteAccountBtn, pressed && { opacity: 0.8 }]}
+          onPress={() => setDeleteAccountOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Hesabımı sil"
+        >
+          <Text style={styles.deleteAccountText}>Hesabımı Sil</Text>
+        </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={deleteAccountOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteAccountOpen(false)}
+      >
+        <Pressable style={styles.deleteModalBackdrop} onPress={() => setDeleteAccountOpen(false)}>
+          <Pressable style={styles.deleteModalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.deleteModalTitle}>Hesabı sil</Text>
+            <Text style={styles.deleteModalBody}>
+              Kalıcı olarak silmek için eposta gönderiniz.
+            </Text>
+            <Text style={styles.deleteModalBody}>
+              Talebinizi yalnızca aşağıdaki adrese iletebilirsiniz. Konu satırına «Hesap silme» yazabilirsiniz; ekibimiz
+              kimlik doğrulaması sonrası işlemi tamamlar.
+            </Text>
+            <Text style={styles.deleteModalEmail} selectable>
+              {SUPPORT_EMAIL}
+            </Text>
+            <Text style={styles.deleteModalHint}>
+              Bu işlem geri alınamaz. Silme talebiniz yalnızca e-posta ile kabul edilir.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [styles.deleteModalOk, pressed && { opacity: 0.9 }]}
+              onPress={() => setDeleteAccountOpen(false)}
+            >
+              <Text style={styles.deleteModalOkText}>Tamam</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={policyOpen !== null}
@@ -193,6 +279,55 @@ function createStyles(colors: ColorPalette) {
     accountLabel: { color: colors.muted, fontSize: 12, fontWeight: "600", marginBottom: 6 },
     accountName: { color: colors.text, fontSize: 20, fontWeight: "800", marginBottom: 4 },
     accountMeta: { color: colors.muted, fontSize: 14 },
+    linkEmailCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    linkEmailCtaText: { color: colors.accent, fontSize: 16, fontWeight: "700" },
+    logoutCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    logoutCtaText: { color: colors.muted, fontSize: 15, fontWeight: "600" },
+    deleteAccountBtn: { marginTop: 8, marginBottom: 24, paddingVertical: 16, alignItems: "center" },
+    deleteAccountText: { color: "#e57373", fontSize: 15, fontWeight: "600" },
+    deleteModalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      justifyContent: "center",
+      paddingHorizontal: 28,
+    },
+    deleteModalCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    deleteModalTitle: { fontSize: 18, fontWeight: "800", color: colors.text, marginBottom: 12 },
+    deleteModalBody: { fontSize: 15, lineHeight: 22, color: colors.text, marginBottom: 12 },
+    deleteModalEmail: { fontSize: 16, fontWeight: "700", color: colors.accent, marginBottom: 12 },
+    deleteModalHint: { fontSize: 13, lineHeight: 19, color: colors.muted, marginBottom: 18 },
+    deleteModalOk: {
+      alignSelf: "stretch",
+      backgroundColor: colors.accent,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    deleteModalOkText: { color: colors.onAccent, fontSize: 16, fontWeight: "700" },
     sectionTitle: {
       color: colors.accent,
       fontSize: 13,

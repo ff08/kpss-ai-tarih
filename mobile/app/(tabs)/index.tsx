@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Dimensions,
   FlatList,
   Pressable,
   RefreshControl,
@@ -12,20 +14,117 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../components/ScreenHeader";
+import { ProgressRing } from "../../components/ProgressRing";
 import type { ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { APP_TAGLINE } from "../../constants/app";
+import { UNLOCK_NEXT_TOPIC_PERCENT } from "../../constants/unlock";
+import { KPSS_EXAMS } from "../../constants/exams";
 import { getTimeOfDayGreeting } from "../../lib/greeting";
-import { fetchTopics, type Topic } from "../../lib/api";
+import { fetchSubtopics, fetchTopics, type Subtopic, type Topic } from "../../lib/api";
+import { loadExamActivePrefs } from "../../lib/examPreferences";
+import { getCountdownTo, nextUpcomingExam, examTargetDate } from "../../lib/examCountdown";
+import { useStudyProgress } from "../../contexts/StudyProgressContext";
+import {
+  aggregateWeightedPercent,
+  topicTotalCardsFromTopic,
+} from "../../lib/studyProgress";
+
+const PAD = 16;
+const GRID_GAP = 12;
+
+type TopicRow = {
+  topic: Topic;
+  percent: number;
+  unlocked: boolean;
+};
+
+function TopicUnitCard(props: {
+  item: TopicRow;
+  cardWidth: number;
+  colors: ColorPalette;
+  onOpen: () => void;
+  onLockedPress: () => void;
+}) {
+  const { item, cardWidth, colors, onOpen, onLockedPress } = props;
+  const s = useMemo(() => unitCardStyles(colors), [colors]);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        s.card,
+        { width: cardWidth },
+        !item.unlocked && s.cardLocked,
+        pressed && item.unlocked && s.cardPressed,
+      ]}
+      onPress={() => (item.unlocked ? onOpen() : onLockedPress())}
+      accessibilityRole="button"
+      accessibilityLabel={item.unlocked ? item.topic.title : `${item.topic.title} kilitli`}
+    >
+      <Text style={[s.title, !item.unlocked && s.titleLocked]} numberOfLines={3}>
+        {item.topic.title}
+      </Text>
+      <View style={s.visual}>
+        {item.unlocked ? (
+          <ProgressRing percent={item.percent} size={56} strokeWidth={4} colors={colors} />
+        ) : (
+          <View style={[s.lockCircle, { borderColor: colors.border }]}>
+            <Ionicons name="lock-closed" size={26} color={colors.muted} />
+          </View>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+function unitCardStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingTop: 14,
+      paddingBottom: 16,
+      minHeight: 148,
+      justifyContent: "space-between",
+    },
+    cardLocked: { opacity: 0.78 },
+    cardPressed: { opacity: 0.92 },
+    title: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "700",
+      lineHeight: 20,
+      minHeight: 60,
+    },
+    titleLocked: { color: colors.muted },
+    visual: { alignItems: "center", justifyContent: "center", paddingTop: 4 },
+    lockCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      borderWidth: 2,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+    },
+  });
+}
 
 export default function TopicsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
+  const { getOverall } = useStudyProgress();
+
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [subtopicsByTopicId, setSubtopicsByTopicId] = useState<Record<number, Subtopic[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState(() => getTimeOfDayGreeting());
+  const [examSubtitle, setExamSubtitle] = useState<string | null>(null);
 
   useEffect(() => {
     setGreeting(getTimeOfDayGreeting());
@@ -37,8 +136,22 @@ export default function TopicsScreen() {
     setError(null);
     setLoading(true);
     try {
-      const t = await fetchTopics();
+      const [t, prefs] = await Promise.all([fetchTopics(), loadExamActivePrefs()]);
+      const next = nextUpcomingExam(KPSS_EXAMS, prefs, new Date());
+      if (!next) {
+        setExamSubtitle("Takvimde yaklaşan sınav yok");
+      } else {
+        const cd = getCountdownTo(examTargetDate(next.date), new Date());
+        setExamSubtitle(cd.passed ? "Sınav tarihi geçti" : `Sınav ${cd.days} gün sonra`);
+      }
+
+      const subPairs = await Promise.all(t.map((topic) => fetchSubtopics(topic.id)));
+      const map: Record<number, Subtopic[]> = {};
+      t.forEach((topic, i) => {
+        map[topic.id] = subPairs[i]?.subtopics ?? [];
+      });
       setTopics(t);
+      setSubtopicsByTopicId(map);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bir hata oluştu");
     } finally {
@@ -50,10 +163,44 @@ export default function TopicsScreen() {
     void load();
   }, [load]);
 
+  const sortedTopics = useMemo(() => [...topics].sort((a, b) => a.sortOrder - b.sortOrder), [topics]);
+
+  const topicRows = useMemo<TopicRow[]>(() => {
+    const percents = sortedTopics.map((topic) =>
+      aggregateWeightedPercent(subtopicsByTopicId[topic.id] ?? [], getOverall),
+    );
+    const unlocked = sortedTopics.map((topic, i) => {
+      if (i === 0) return true;
+      const prev = sortedTopics[i - 1]!;
+      if (topicTotalCardsFromTopic(prev) === 0) return true;
+      return (percents[i - 1] ?? 0) >= UNLOCK_NEXT_TOPIC_PERCENT;
+    });
+    return sortedTopics.map((topic, i) => ({
+      topic,
+      percent: percents[i] ?? 0,
+      unlocked: unlocked[i] ?? false,
+    }));
+  }, [sortedTopics, subtopicsByTopicId, getOverall]);
+
+  const globalPercent = useMemo(() => {
+    const all = sortedTopics.flatMap((t) => subtopicsByTopicId[t.id] ?? []);
+    return aggregateWeightedPercent(all, getOverall);
+  }, [sortedTopics, subtopicsByTopicId, getOverall]);
+
+  const { width: winW } = Dimensions.get("window");
+  const cardWidth = (winW - PAD * 2 - GRID_GAP) / 2;
+
+  const onLockedPress = useCallback(() => {
+    Alert.alert(
+      "Kilitli ünite",
+      `Bir sonraki üniteyi açmak için önceki ünitede en az %${UNLOCK_NEXT_TOPIC_PERCENT} ilerleme kaydetmelisin.`,
+    );
+  }, []);
+
   if (loading && topics.length === 0) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title="KPSS Tarih Notları" aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.muted}>Konular yükleniyor…</Text>
@@ -65,7 +212,7 @@ export default function TopicsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title="KPSS Tarih Notları" aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>Bağlantı hatası</Text>
           <Text style={styles.muted}>{error}</Text>
@@ -83,114 +230,73 @@ export default function TopicsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <ScreenHeader title="KPSS AI Tarih" aboveTitle={greeting} tagline={APP_TAGLINE} />
+      <ScreenHeader
+        title="KPSS Tarih Notları"
+        aboveTitle={greeting}
+        tagline={APP_TAGLINE}
+        subtitle={examSubtitle ?? undefined}
+      />
+
+      <View style={styles.summary}>
+        <View style={styles.summaryTextCol}>
+          <Text style={styles.summaryLabel}>Genel ilerleme</Text>
+          <Text style={styles.summaryHint}>Kartları çalıştıkça yüzde artar</Text>
+        </View>
+        <ProgressRing percent={globalPercent} size={52} strokeWidth={4} colors={colors} />
+      </View>
+
       <FlatList
         style={styles.listFlex}
-        data={topics}
-        keyExtractor={(item) => String(item.id)}
+        data={topicRows}
+        keyExtractor={(item) => String(item.topic.id)}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrap}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.gridContent}
         renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={() => router.push(`/topic/${item.id}`)}
-          >
-            <View style={styles.rowTextCol}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              {item.description ? <Text style={styles.rowDesc}>{item.description}</Text> : null}
-              <View
-                style={[
-                  styles.statsDivider,
-                  item.description ? styles.statsDividerAfterDesc : styles.statsDividerNoDesc,
-                ]}
-              />
-              <View style={styles.statsRow}>
-                <TopicStatChip
-                  icon="layers-outline"
-                  count={item.subtopicCount ?? 0}
-                  caption="Ünite"
-                  bg={colors.topicStatSubBg}
-                  fg={colors.topicStatSubFg}
-                />
-              </View>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
+          <TopicUnitCard
+            item={item}
+            cardWidth={cardWidth}
+            colors={colors}
+            onOpen={() => router.push(`/topic/${item.topic.id}`)}
+            onLockedPress={onLockedPress}
+          />
         )}
       />
     </SafeAreaView>
   );
 }
 
-function TopicStatChip(props: {
-  icon: keyof typeof Ionicons.glyphMap;
-  count: number;
-  caption: string;
-  bg: string;
-  fg: string;
-}) {
-  const { icon, count, caption, bg, fg } = props;
-  return (
-    <View style={[topicStatStyles.chip, { backgroundColor: bg }]}>
-      <Ionicons name={icon} size={13} color={fg} />
-      <Text style={[topicStatStyles.chipText, { color: fg }]} numberOfLines={1}>
-        {count} {caption}
-      </Text>
-    </View>
-  );
-}
-
-const topicStatStyles = StyleSheet.create({
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    maxWidth: "100%",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginRight: 6,
-    marginTop: 0,
-    gap: 5,
-  },
-  chipText: { flexShrink: 1, fontSize: 11, fontWeight: "600", marginLeft: 2 },
-});
-
 function createStyles(colors: ColorPalette) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
     listFlex: { flex: 1 },
-    list: { paddingHorizontal: 16, paddingBottom: 24 },
-    row: {
-      flexDirection: "row",
-      alignItems: "flex-start",
+    gridContent: {
+      paddingHorizontal: PAD,
+      paddingBottom: 24,
+    },
+    columnWrap: {
       justifyContent: "space-between",
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      paddingVertical: 14,
+      marginBottom: GRID_GAP,
+      gap: GRID_GAP,
+    },
+    summary: {
+      marginHorizontal: PAD,
+      marginBottom: 16,
       paddingHorizontal: 16,
-      marginBottom: 10,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
     },
-    rowPressed: { opacity: 0.92 },
-    rowTextCol: { flex: 1, minWidth: 0, paddingRight: 12 },
-    rowTitle: { color: colors.text, fontSize: 16, fontWeight: "600", lineHeight: 22 },
-    rowDesc: {
-      color: colors.muted,
-      fontSize: 12,
-      lineHeight: 17,
-      marginTop: 5,
-      marginBottom: 0,
-    },
-    statsDivider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border,
-      alignSelf: "stretch",
-    },
-    statsDividerAfterDesc: { marginTop: 12, marginBottom: 10 },
-    statsDividerNoDesc: { marginTop: 10, marginBottom: 10 },
-    statsRow: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2 },
-    chevron: { color: colors.muted, fontSize: 22, fontWeight: "300", marginTop: 2 },
+    summaryTextCol: { flex: 1, minWidth: 0 },
+    summaryLabel: { color: colors.text, fontSize: 16, fontWeight: "700" },
+    summaryHint: { color: colors.muted, fontSize: 12, marginTop: 4, lineHeight: 17 },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: colors.bg },
     muted: { color: colors.muted, marginTop: 12, textAlign: "center", lineHeight: 20 },
     errorTitle: { color: colors.text, fontSize: 18, fontWeight: "600" },

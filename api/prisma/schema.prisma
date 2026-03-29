@@ -32,6 +32,8 @@ model Subtopic {
   topicId             Int
   topic               Topic                  @relation(fields: [topicId], references: [id], onDelete: Cascade)
   title               String
+  /// Konu ekranı alt konu kartı açıklaması (opsiyonel).
+  description         String?                @db.Text
   sortOrder           Int                    @default(0)
   informationContents InformationContent[]
   openQaContents      OpenQaContent[]

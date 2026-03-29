@@ -202,7 +202,7 @@ async function build() {
     const topic = await prisma.topic.findUnique({
       where: { id: topicIdNum },
       include: {
-        subtopics: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, sortOrder: true } },
+        subtopics: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, description: true, sortOrder: true } },
       },
     });
     if (!topic) {
@@ -283,6 +283,7 @@ async function build() {
     return {
       subtopicId: sub.id,
       title: sub.title,
+      description: sub.description,
       topicId: sub.topic.id,
       topicTitle: sub.topic.title,
       informationCount,

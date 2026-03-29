@@ -17,6 +17,8 @@ export type Topic = {
 export type Subtopic = {
   id: number;
   title: string;
+  /** Konu ekranı kartı; API’den gelir, boşsa istemci yedek metin kullanır. */
+  description?: string | null;
   sortOrder: number;
   informationCount: number;
   openQaCount: number;
@@ -107,6 +109,7 @@ export async function fetchSubtopics(topicId: string | number): Promise<{
 export async function fetchSubtopicMeta(subtopicId: string | number): Promise<{
   subtopicId: number;
   title: string;
+  description?: string | null;
   topicId: number;
   topicTitle: string;
   informationCount: number;

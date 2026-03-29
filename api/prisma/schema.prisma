@@ -167,3 +167,91 @@ model ContentIssueReport {
   @@index([createdAt])
   @@unique([reporterClientId, subtopicId, datasetKind, contentRowId])
 }
+
+// —— Kullanıcı / oturum / abonelik (Tarih AI) ——
+
+model User {
+  id            String         @id @default(cuid())
+  email         String?        @unique
+  guestClientId String?        @unique
+  displayName   String?
+  examTargetId  String?
+  isGuest       Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailOtpChallenge {
+  id        Int      @id @default(autoincrement())
+  email     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@map("email_otp_challenges")
+}
+
+enum AppLogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+model AppLog {
+  id        Int         @id @default(autoincrement())
+  level     AppLogLevel @default(INFO)
+  action    String
+  userId    String?
+  meta      Json?
+  createdAt DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@map("app_logs")
+}
+
+enum SubscriptionPlan {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+/// Ödeme sağlayıcı entegrasyonu sonrası doldurulacak; şema hazır.
+model Subscription {
+  id               Int                @id @default(autoincrement())
+  userId           String             @unique
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan
+  status           SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd DateTime?
+  provider         String?
+  externalId       String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([status])
+  @@map("subscriptions")
+}

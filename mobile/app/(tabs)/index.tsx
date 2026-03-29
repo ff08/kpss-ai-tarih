@@ -17,7 +17,7 @@ import { ScreenHeader } from "../../components/ScreenHeader";
 import { ProgressRing } from "../../components/ProgressRing";
 import type { ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../contexts/ThemeContext";
-import { APP_TAGLINE } from "../../constants/app";
+import { APP_NAME, APP_TAGLINE } from "../../constants/app";
 import { UNLOCK_NEXT_TOPIC_PERCENT } from "../../constants/unlock";
 import { KPSS_EXAMS } from "../../constants/exams";
 import { getTimeOfDayGreeting } from "../../lib/greeting";
@@ -200,7 +200,7 @@ export default function TopicsScreen() {
   if (loading && topics.length === 0) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title="KPSS Tarih Notları" aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title={APP_NAME} aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.muted}>Konular yükleniyor…</Text>
@@ -212,7 +212,7 @@ export default function TopicsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-        <ScreenHeader title="KPSS Tarih Notları" aboveTitle={greeting} tagline={APP_TAGLINE} />
+        <ScreenHeader title={APP_NAME} aboveTitle={greeting} tagline={APP_TAGLINE} />
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>Bağlantı hatası</Text>
           <Text style={styles.muted}>{error}</Text>
@@ -231,7 +231,7 @@ export default function TopicsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScreenHeader
-        title="KPSS Tarih Notları"
+        title={APP_NAME}
         aboveTitle={greeting}
         tagline={APP_TAGLINE}
         subtitle={examSubtitle ?? undefined}

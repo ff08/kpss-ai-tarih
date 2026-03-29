@@ -277,7 +277,6 @@ function TopicSectionsPath(
                 backgroundColor: colors.card,
                 borderColor: colors.border,
                 zIndex: 2,
-                paddingRight: showCharacter ? 108 : 14,
               },
               section.locked && styles.topicCardLocked,
             ]}
@@ -287,21 +286,35 @@ function TopicSectionsPath(
                 <Ionicons name="lock-closed" size={20} color={colors.muted} />
               </View>
             ) : null}
-            <Text style={[styles.topicCardEyebrow, { color: colors.muted }]}>Alt konu</Text>
-            <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
-              {section.title}
-            </Text>
-            <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
-              {section.description}
-            </Text>
             {showCharacter ? (
-              <Image
-                source={section.characterImage!}
-                style={styles.topicCardCharacter}
-                contentFit="contain"
-                accessibilityIgnoresInvertColors
-              />
-            ) : null}
+              <View style={styles.topicCardRow}>
+                <View style={styles.topicCardTextBlockFlex}>
+                  <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
+                    {section.title}
+                  </Text>
+                  <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
+                    {section.description}
+                  </Text>
+                </View>
+                <View style={styles.topicCardImageCol} pointerEvents="none">
+                  <Image
+                    source={section.characterImage!}
+                    style={styles.topicCardCharacter}
+                    contentFit="contain"
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.topicCardTextBlock}>
+                <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
+                  {section.title}
+                </Text>
+                <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
+                  {section.description}
+                </Text>
+              </View>
+            )}
           </View>
         );
       })}
@@ -413,22 +426,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingVertical: 12,
     minHeight: TOPIC_CARD_BLOCK,
+    justifyContent: "center",
     overflow: "visible",
     elevation: 4,
   },
-  /** Sağ kenar + dikey orta (100px yükseklik için -50 offset). */
-  /** Daha büyük, kartın sağ-üstüne taşır; marginTop ile yukarı kaydırılmış merkez (derinlik). */
+  topicCardTextBlock: {
+    position: "relative",
+  },
+  /** Metin + görsel yan yana; metin taşmaz, görsel sağ sütunda. */
+  topicCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+  },
+  topicCardTextBlockFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  topicCardImageCol: {
+    width: 118,
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    overflow: "visible",
+    marginRight: -10,
+  },
   topicCardCharacter: {
-    position: "absolute",
-    right: -18,
-    top: "50%",
-    marginTop: -82,
-    width: 128,
-    height: 128,
-    zIndex: 5,
+    width: 118,
+    height: 118,
+    marginTop: -24,
     backgroundColor: "transparent",
     shadowColor: "#000000",
     shadowOpacity: 0.28,
@@ -449,18 +479,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  topicCardEyebrow: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
   topicCardTitle: {
     fontSize: 16,
     fontWeight: "700",
     lineHeight: 22,
-    paddingRight: 8,
   },
   topicCardDesc: {
     marginTop: 6,

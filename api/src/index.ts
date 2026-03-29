@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { Prisma, PrismaClient, type ContentDatasetKind } from "@prisma/client";
 import { z } from "zod";
+import { registerAuthRoutes } from "./authRoutes";
 
 const prisma = new PrismaClient();
 
@@ -457,6 +458,8 @@ async function build() {
       throw e;
     }
   });
+
+  registerAuthRoutes(app, prisma);
 
   return app;
 }

@@ -11,7 +11,7 @@ export const ABOUT_POLICIES: Record<
     summary: "Eğitim amacı, ÖSYM ve müfredat uyarısı",
     body:
       "Bu uygulama eğitim amaçlıdır; resmi sınav kaynağı değildir. İçerikler müfredat çerçevesinde özetlenmiştir. Güncel mevzuat, sınav kılavuzu ve duyurular için ÖSYM’yi ve resmi kaynakları takip edin.\n\n" +
-      "KPSS AI Tarih, bilgi kartları, soru–cevap ve çoktan seçmeli içeriklerle tekrar yapmanıza yardımcı olmayı amaçlar; sınavda çıkacak soruları garanti etmez.",
+      "Tarih AI, bilgi kartları, soru–cevap ve çoktan seçmeli içeriklerle tekrar yapmanıza yardımcı olmayı amaçlar; sınavda çıkacak soruları garanti etmez.",
   },
   gizlilik: {
     title: "Gizlilik",

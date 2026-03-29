@@ -1,2 +1,5 @@
-/** Header’da sayfa başlığının altında gösterilen uygulama tagline’ı */
-export const APP_TAGLINE = "Bilgi kartları, soru–cevap ve çoktan seçmeli ile KPSS Tarih müfredatını tekrarlayın.";
+/** Uygulama adı (marka) */
+export const APP_NAME = "Tarih AI";
+
+/** Header’da sayfa başlığının altında gösterilen kısa açıklama */
+export const APP_TAGLINE = "KPSS Tarih müfredatını yapay zeka ile tekrarlayın.";

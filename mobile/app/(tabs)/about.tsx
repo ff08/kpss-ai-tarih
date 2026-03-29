@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -10,11 +11,13 @@ import {
 } from "react-native";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ABOUT_POLICIES, POLICY_ORDER, type PolicyId } from "../../constants/aboutPolicies";
 import type { ColorPalette } from "../../constants/theme";
-import { APP_TAGLINE } from "../../constants/app";
+import { APP_NAME, APP_TAGLINE } from "../../constants/app";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 
 function appVersion(): string {
@@ -23,6 +26,8 @@ function appVersion(): string {
 }
 
 export default function AboutScreen() {
+  const router = useRouter();
+  const { user, premium, refreshUser, token } = useAuth();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const version = appVersion();
@@ -30,11 +35,51 @@ export default function AboutScreen() {
 
   const openPolicy = policyOpen ? ABOUT_POLICIES[policyOpen] : null;
 
+  useFocusEffect(
+    useCallback(() => {
+      if (token) void refreshUser();
+    }, [token, refreshUser]),
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <ScreenHeader title="Hakkında" tagline={APP_TAGLINE} />
+      <ScreenHeader title="Hesabım" tagline={APP_TAGLINE} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
+        {user ? (
+          <View style={styles.section}>
+            <Text style={styles.accountLabel}>Oturum</Text>
+            <Text style={styles.accountName}>{user.displayName ?? "Öğrenci"}</Text>
+            <Text style={styles.accountMeta}>
+              {user.email ?? "Misafir"} · {premium ? "Premium" : "Ücretsiz"}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            onPress={() => router.push("/premium")}
+            accessibilityRole="button"
+            accessibilityLabel="Premium"
+          >
+            <Text style={styles.linkRowText}>Premium’a geç</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            onPress={() => router.push("/stats")}
+            accessibilityRole="button"
+            accessibilityLabel="İstatistik"
+          >
+            <Text style={styles.linkRowText}>İstatistik</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Görünüm</Text>
           <View style={styles.themeRow}>
@@ -58,7 +103,7 @@ export default function AboutScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Uygulama</Text>
-          <Text style={styles.appName}>KPSS AI Tarih</Text>
+          <Text style={styles.appName}>{APP_NAME}</Text>
           <Text style={styles.version}>Sürüm {version}</Text>
           <Text style={styles.body}>
             KPSS Genel Yetenek Tarih müfredatına uygun bilgi kartları, soru–cevap ve çoktan seçmeli sorularla
@@ -145,6 +190,9 @@ function createStyles(colors: ColorPalette) {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    accountLabel: { color: colors.muted, fontSize: 12, fontWeight: "600", marginBottom: 6 },
+    accountName: { color: colors.text, fontSize: 20, fontWeight: "800", marginBottom: 4 },
+    accountMeta: { color: colors.muted, fontSize: 14 },
     sectionTitle: {
       color: colors.accent,
       fontSize: 13,
@@ -159,6 +207,14 @@ function createStyles(colors: ColorPalette) {
       lineHeight: 19,
       marginBottom: 8,
     },
+    linkRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 2,
+    },
+    linkRowPressed: { opacity: 0.85 },
+    linkRowText: { color: colors.text, fontSize: 16, fontWeight: "600", flex: 1 },
     themeRow: {
       flexDirection: "row",
       alignItems: "center",

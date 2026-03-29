@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { Alert, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import type { CardKind } from "../lib/api";
 import type { ColorPalette } from "../constants/theme";
@@ -46,8 +45,6 @@ export type StudyModeTopicSection = {
   title: string;
   description: string;
   locked: boolean;
-  /** Kilit açıkken sağda gösterilir; yoksa veya kilitliyken gösterilmez. */
-  characterImage?: ImageSourcePropType | null;
   steps: StudyModePathStep[];
 };
 
@@ -263,61 +260,37 @@ function TopicSectionsPath(
         </Svg>
       ) : null}
 
-      {cards.map(({ top, section }) => {
-        const showCharacter = !section.locked && section.characterImage != null;
-        return (
-          <View
-            key={`card-${section.subtopicId}`}
-            style={[
-              styles.topicCard,
-              {
-                top,
-                left: pad,
-                right: pad,
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                zIndex: 2,
-              },
-              section.locked && styles.topicCardLocked,
-            ]}
-          >
-            {section.locked ? (
-              <View style={[styles.topicCardLock, { backgroundColor: colors.surface, zIndex: 4 }]}>
-                <Ionicons name="lock-closed" size={20} color={colors.muted} />
-              </View>
-            ) : null}
-            {showCharacter ? (
-              <View style={styles.topicCardRow}>
-                <View style={styles.topicCardTextBlockFlex}>
-                  <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
-                    {section.title}
-                  </Text>
-                  <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
-                    {section.description}
-                  </Text>
-                </View>
-                <View style={styles.topicCardImageCol} pointerEvents="none">
-                  <Image
-                    source={section.characterImage!}
-                    style={styles.topicCardCharacter}
-                    contentFit="contain"
-                    accessibilityIgnoresInvertColors
-                  />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.topicCardTextBlock}>
-                <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
-                  {section.title}
-                </Text>
-                <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
-                  {section.description}
-                </Text>
-              </View>
-            )}
+      {cards.map(({ top, section }) => (
+        <View
+          key={`card-${section.subtopicId}`}
+          style={[
+            styles.topicCard,
+            {
+              top,
+              left: pad,
+              right: pad,
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              zIndex: 2,
+            },
+            section.locked && styles.topicCardLocked,
+          ]}
+        >
+          {section.locked ? (
+            <View style={[styles.topicCardLock, { backgroundColor: colors.surface, zIndex: 4 }]}>
+              <Ionicons name="lock-closed" size={20} color={colors.muted} />
+            </View>
+          ) : null}
+          <View style={styles.topicCardTextBlock}>
+            <Text style={[styles.topicCardTitle, { color: colors.text }]} numberOfLines={2}>
+              {section.title}
+            </Text>
+            <Text style={[styles.topicCardDesc, { color: colors.muted }]} numberOfLines={4}>
+              {section.description}
+            </Text>
           </View>
-        );
-      })}
+        </View>
+      ))}
 
       {flatSteps.map((step, i) => (
         <PathNode
@@ -434,37 +407,6 @@ const styles = StyleSheet.create({
   },
   topicCardTextBlock: {
     position: "relative",
-  },
-  /** Metin + görsel yan yana; metin taşmaz, görsel sağ sütunda. */
-  topicCardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    width: "100%",
-    minWidth: 0,
-  },
-  topicCardTextBlockFlex: {
-    flex: 1,
-    minWidth: 0,
-  },
-  topicCardImageCol: {
-    width: 118,
-    flexShrink: 0,
-    alignItems: "flex-end",
-    justifyContent: "center",
-    overflow: "visible",
-    marginRight: -10,
-  },
-  topicCardCharacter: {
-    width: 118,
-    height: 118,
-    marginTop: -24,
-    backgroundColor: "transparent",
-    shadowColor: "#000000",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
   },
   topicCardLocked: {
     opacity: 0.72,

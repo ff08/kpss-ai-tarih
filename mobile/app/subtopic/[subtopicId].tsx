@@ -583,21 +583,20 @@ export default function CardDeckScreen() {
             </View>
           </View>
 
-          <Text style={styles.modeIntro}>Nasıl çalışmak istersiniz?</Text>
-          <Text style={styles.pathHint}>Adımlar sırayla açılır; bir öncekini bitirince sonraki kilit kalkar.</Text>
-
           {studyPathSteps.length === 0 ? (
-            <View style={styles.emptyPath}>
+            <View style={[styles.emptyPath, styles.pathBlockAfterMastery]}>
               <Text style={styles.emptyPathTitle}>Bu alt konuda henüz kart yok</Text>
               <Text style={styles.emptyPathSub}>İçerik eklendiğinde çalışma yolu burada görünecek.</Text>
             </View>
           ) : (
-            <StudyModePath
-              width={windowWidth}
-              steps={studyPathSteps}
-              colors={colors}
-              onPressStep={({ kind }) => setMode(kind)}
-            />
+            <View style={styles.pathBlockAfterMastery}>
+              <StudyModePath
+                width={windowWidth}
+                steps={studyPathSteps}
+                colors={colors}
+                onPressStep={({ kind }) => setMode(kind)}
+              />
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -917,20 +916,8 @@ function createSubtopicStyles(colors: ColorPalette) {
       borderWidth: StyleSheet.hairlineWidth,
     },
     levelPillText: { fontSize: 12, fontWeight: "700" },
-    modeIntro: {
-      color: colors.text,
-      fontSize: 17,
-      fontWeight: "600",
-      paddingHorizontal: 20,
+    pathBlockAfterMastery: {
       marginTop: 20,
-      marginBottom: 6,
-    },
-    pathHint: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 20,
-      paddingHorizontal: 20,
-      marginBottom: 18,
     },
     emptyPath: {
       paddingHorizontal: 28,

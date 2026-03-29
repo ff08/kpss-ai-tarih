@@ -110,6 +110,7 @@ function unitCardStyles(colors: ColorPalette) {
       fontWeight: "700",
       lineHeight: 20,
       minHeight: 60,
+      textAlign: "center",
     },
     titleLocked: { color: colors.muted },
     visual: { alignItems: "center", justifyContent: "center", paddingTop: 4 },

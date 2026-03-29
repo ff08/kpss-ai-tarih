@@ -18,7 +18,6 @@ import type { ColorPalette } from "../../constants/theme";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { fetchSubtopics, type Subtopic } from "../../lib/api";
-import { characterImageForTopicSubtopic } from "../../constants/topicPathCharacters";
 import { buildSubtopicCardDescription } from "../../lib/subtopicStrings";
 import {
   buildFullTopicPath,
@@ -75,10 +74,9 @@ export default function TopicStudyPathScreen() {
       title: st.title,
       description: buildSubtopicCardDescription(st, index),
       locked: !isSubtopicUnlockedByOrder(st.id, sortedSubtopics, getSubtopic),
-      characterImage: characterImageForTopicSubtopic(topicId ?? "", index),
       steps: topicPathSteps.filter((s) => s.subtopicId === st.id),
     }));
-  }, [sortedSubtopics, topicPathSteps, getSubtopic, progress, topicId]);
+  }, [sortedSubtopics, topicPathSteps, getSubtopic, progress]);
 
   const allSubtopicsComplete = useMemo(() => {
     if (sortedSubtopics.length === 0) return false;
@@ -121,12 +119,6 @@ export default function TopicStudyPathScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
       >
-        <Text style={styles.pathTitle}>Çalışma yolu</Text>
-        <Text style={styles.pathSub}>
-          Tüm alt konuları aşağıda görürsünüz. Kilitli bölümler, sıradaki alt konuyu bitirince açılır; modlar yine sırayla
-          ilerler.
-        </Text>
-
         {sortedSubtopics.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Alt konu yok</Text>
@@ -174,21 +166,6 @@ function createStyles(colors: ColorPalette) {
     safe: { flex: 1, backgroundColor: colors.bg },
     scroll: { flex: 1 },
     scrollContent: { paddingBottom: 32 },
-    pathTitle: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: "700",
-      paddingHorizontal: 20,
-      marginTop: 8,
-      marginBottom: 8,
-    },
-    pathSub: {
-      color: colors.muted,
-      fontSize: 14,
-      lineHeight: 20,
-      paddingHorizontal: 20,
-      marginBottom: 16,
-    },
     emptyBox: {
       marginHorizontal: 16,
       padding: 20,

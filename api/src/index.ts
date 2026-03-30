@@ -161,6 +161,28 @@ async function build() {
     return { ranks };
   });
 
+  app.get("/catalog/exam-calendar", async (request, reply) => {
+    const examId = await resolveExamIdForTopicsRequest(request as any);
+    if (!examId) {
+      return reply.status(400).send({ error: "Sınav seçilemedi" });
+    }
+
+    const rows = await prisma.examCalendar.findMany({
+      where: { examId },
+      orderBy: [{ sortOrder: "asc" }, { examDate: "asc" }],
+      select: {
+        id: true,
+        isActive: true,
+        examDate: true,
+        applicationDeadline: true,
+        title: true,
+        description: true,
+      },
+    });
+
+    return { items: rows };
+  });
+
   app.get("/topics", async (request, reply) => {
     const examId = await resolveExamIdForTopicsRequest(request);
     if (!examId) {

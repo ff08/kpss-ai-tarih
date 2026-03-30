@@ -107,6 +107,17 @@ export type CatalogRank = {
   imageUrl: string | null;
 };
 
+export type CatalogExamCalendarItem = {
+  id: number;
+  isActive: boolean;
+  /** ISO datetime string */
+  examDate: string;
+  /** ISO datetime string */
+  applicationDeadline: string;
+  title: string;
+  description: string | null;
+};
+
 export async function fetchCatalogRanks(): Promise<CatalogRank[]> {
   const { headers, examSlug } = await contentApiAuthParts();
   const sp = new URLSearchParams();
@@ -116,6 +127,15 @@ export async function fetchCatalogRanks(): Promise<CatalogRank[]> {
   if (!r.ok) throw new Error(`Rütbe listesi alınamadı (${r.status})`);
   const j = (await r.json()) as { ranks: CatalogRank[] };
   return j.ranks;
+}
+
+export async function fetchCatalogExamCalendar(): Promise<CatalogExamCalendarItem[]> {
+  const { headers, examSlug } = await contentApiAuthParts();
+  const q = examSlug ? `?examSlug=${encodeURIComponent(examSlug)}` : "";
+  const r = await fetch(`${base()}/catalog/exam-calendar${q}`, { headers });
+  if (!r.ok) throw new Error(`Sınav takvimi alınamadı (${r.status})`);
+  const j = (await r.json()) as { items: CatalogExamCalendarItem[] };
+  return j.items;
 }
 
 export async function fetchCatalogExams(opts?: { includeInactive?: boolean; token?: string | null }): Promise<

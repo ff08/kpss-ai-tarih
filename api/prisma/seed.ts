@@ -27,6 +27,85 @@ async function main() {
     update: {},
   });
 
+  // —— Sınav takvimi (örnek veriler) ——
+  // Not: applicationDeadline alanı gerçek ÖSYM başvuru son tarihleriyle güncellenmelidir.
+  function utcYmdAtHour(dateStr: string, hourUTC: number, minuteUTC = 0): Date {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d, hourUTC, minuteUTC, 0, 0));
+  }
+  function utcAddDays(dt: Date, days: number): Date {
+    return new Date(dt.getTime() + days * 24 * 60 * 60 * 1000);
+  }
+
+  const examCalendarRows: Array<{
+    examDateStr: string;
+    applicationDeadlineStr?: string | null;
+    title: string;
+    description: string | null;
+  }> = [
+    {
+      examDateStr: "2026-09-06",
+      applicationDeadlineStr: "2026-07-13",
+      title: "2026-KPSS Lisans (Genel Yetenek-Genel Kültür)",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+    {
+      examDateStr: "2026-09-12",
+      title: "2026-KPSS Lisans (Alan Bilgisi) 1. gün",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+    {
+      examDateStr: "2026-09-13",
+      title: "2026-KPSS Lisans (Alan Bilgisi) 2. gün",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+    {
+      examDateStr: "2026-10-04",
+      title: "2026-KPSS Ön Lisans",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+    {
+      examDateStr: "2026-10-25",
+      title: "2026-KPSS Ortaöğretim",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+    {
+      examDateStr: "2026-11-01",
+      title: "2026-KPSS Din Hizmetleri Alan Bilgisi Testi (DHBT)",
+      description: "ÖSYM başvuru ve sınav duyurularını takip edin.",
+    },
+  ];
+
+  // Sınav tarihinden ~45 gün önceyi başvuru son tarihi gibi işliyoruz (geçici).
+  for (const row of examCalendarRows) {
+    const examDate = utcYmdAtHour(row.examDateStr, 9, 0);
+    const applicationDeadline = row.applicationDeadlineStr
+      ? utcYmdAtHour(row.applicationDeadlineStr, 0, 0)
+      : utcAddDays(examDate, -45);
+    // Başvuru son tarihi gün sonu (UTC).
+    applicationDeadline.setUTCHours(23, 59, 0, 0);
+
+    await prisma.examCalendar.upsert({
+      where: { examId_examDate: { examId: exam.id, examDate } },
+      create: {
+        examId: exam.id,
+        isActive: true,
+        examDate,
+        applicationDeadline,
+        title: row.title,
+        description: row.description,
+        sortOrder: 0,
+      },
+      update: {
+        isActive: true,
+        applicationDeadline,
+        title: row.title,
+        description: row.description,
+        sortOrder: 0,
+      },
+    });
+  }
+
   await prisma.topic.deleteMany({ where: { examId: exam.id } });
 
   for (const u of mufredatJson.kpss_tarih_tam_mufredat) {

@@ -7,7 +7,8 @@ export function examTargetDate(dateStr: string): Date {
 }
 
 export function formatTrDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
+  const ymd = dateStr.includes("T") ? dateStr.slice(0, 10) : dateStr;
+  const [y, m, d] = ymd.split("-").map(Number);
   return `${String(d).padStart(2, "0")}.${String(m).padStart(2, "0")}.${y}`;
 }
 

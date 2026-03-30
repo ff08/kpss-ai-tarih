@@ -22,7 +22,8 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>("dark");
+  // Uygulama ilk açılışında darkmode kapalı (light) gelsin.
+  const [mode, setModeState] = useState<ThemeMode>("light");
 
   useEffect(() => {
     void AsyncStorage.getItem(STORAGE_KEY).then((v) => {

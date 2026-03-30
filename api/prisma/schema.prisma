@@ -21,6 +21,7 @@ model ExamCatalog {
   topics      Topic[]
   users       User[]
   rankDefs    ExamRankDef[]
+  examCalendarItems ExamCalendar[]
 
   @@map("exam_catalog")
 }
@@ -42,6 +43,31 @@ model ExamRankDef {
   @@unique([examId, level])
   @@index([examId])
   @@map("exam_rank_defs")
+}
+
+/// Sınav takvimi: her sınav duyurusu için başvuru son tarihi + sınav tarihi.
+model ExamCalendar {
+  id                     Int          @id @default(autoincrement())
+  examId                 Int
+  exam                   ExamCatalog @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  /// Takip edilebilir / aktif mi?
+  isActive               Boolean      @default(true)
+  /// Sınav tarihi (gün/ay/yıl).
+  examDate               DateTime     @map("exam_date")
+  /// Sınav başvurusunun son tarihi.
+  applicationDeadline   DateTime     @map("application_deadline")
+
+  title                  String
+  description            String?      @db.Text
+  sortOrder              Int          @default(0)
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([examId, examDate])
+  @@index([examId])
+  @@map("exam_calendar")
 }
 
 model Topic {

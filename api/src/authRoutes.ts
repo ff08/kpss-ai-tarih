@@ -21,6 +21,19 @@ function newSessionToken(): string {
   return randomBytes(32).toString("hex");
 }
 
+/**
+ * RevenueCat webhook Authorization: panelde bazen sadece token, bazen "Bearer <token>" yazılır;
+ * Railway env’de de tersi olabildiği için token düzeyinde karşılaştırırız.
+ */
+function revenueCatWebhookAuthMatches(expectedRaw: string, incomingRaw: string): boolean {
+  const expected = expectedRaw.trim();
+  const incoming = (incomingRaw ?? "").trim();
+  if (!expected || !incoming) return false;
+  if (incoming === expected) return true;
+  const stripBearer = (s: string) => s.replace(/^Bearer\s+/i, "").trim();
+  return stripBearer(incoming) === stripBearer(expected);
+}
+
 async function sendResendOtpEmail(to: string, code: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
@@ -691,7 +704,21 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       return reply.status(500).send({ error: "Webhook yapılandırması eksik" });
     }
     const auth = request.headers.authorization ?? "";
-    if (auth !== expected) {
+    if (!revenueCatWebhookAuthMatches(expected, auth)) {
+      await prisma.appLog.create({
+        data: {
+          level: AppLogLevel.WARN,
+          action: "revenuecat_webhook_auth_failed",
+          userId: null,
+          meta: {
+            hasAuthorizationHeader: auth.length > 0,
+            incomingHeaderLength: auth.length,
+            expectedEnvLength: expected.trim().length,
+            hint:
+              "RevenueCat Webhooks > Authorization header ile Railway REVENUECAT_WEBHOOK_SECRET aynı token olmalı (Bearer farkı artık tolere edilir).",
+          } as object,
+        },
+      });
       return reply.status(401).send({ error: "Yetkisiz" });
     }
 

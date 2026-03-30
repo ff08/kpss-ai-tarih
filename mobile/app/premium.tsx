@@ -17,6 +17,7 @@ import {
   inferPlanFromProductId,
   isRevenueCatConfigured,
   pickMonthlyYearlyPackages,
+  revenueCatConfigDebug,
 } from "../lib/revenuecat";
 
 export default function PremiumScreen() {
@@ -141,12 +142,24 @@ export default function PremiumScreen() {
               return;
             }
             if (!isRevenueCatConfigured()) {
-              Alert.alert("RevenueCat ayarı eksik", "Uygulama yapılandırması tamamlanmamış.");
+              const dbg = revenueCatConfigDebug();
+              console.warn("[revenuecat] not configured", dbg);
+              Alert.alert(
+                "RevenueCat ayarı eksik",
+                dbg.missing.length > 0
+                  ? `Eksik: ${dbg.missing.join(", ")}`
+                  : "Uygulama yapılandırması tamamlanmamış.",
+              );
               return;
             }
             const pkg =
               selected === "YEARLY" ? packages?.yearly : packages?.monthly;
             if (!pkg) {
+              console.warn("[revenuecat] package missing", {
+                selected,
+                hasMonthly: !!packages?.monthly,
+                hasYearly: !!packages?.yearly,
+              });
               Alert.alert("Paket bulunamadı", "Ürünler yüklenemedi. Tekrar dene.");
               return;
             }

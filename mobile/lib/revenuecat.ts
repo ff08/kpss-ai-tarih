@@ -27,6 +27,26 @@ export function isRevenueCatConfigured(): boolean {
   return !!c.apiKey && c.entitlementId.length > 0;
 }
 
+export function revenueCatConfigDebug(): {
+  platform: "ios" | "android";
+  apiKeyPresent: boolean;
+  entitlementId: string;
+  offeringId?: string;
+  missing: string[];
+} {
+  const platform = Platform.OS === "ios" ? "ios" : "android";
+  const iosApiKey = process.env.EXPO_PUBLIC_RC_IOS_API_KEY;
+  const androidApiKey = process.env.EXPO_PUBLIC_RC_ANDROID_API_KEY;
+  const entitlementId = process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium";
+  const offeringId = process.env.EXPO_PUBLIC_RC_OFFERING_ID;
+  const apiKey = platform === "ios" ? iosApiKey ?? null : androidApiKey ?? null;
+  const missing: string[] = [];
+  if (platform === "ios" && !iosApiKey) missing.push("EXPO_PUBLIC_RC_IOS_API_KEY");
+  if (platform === "android" && !androidApiKey) missing.push("EXPO_PUBLIC_RC_ANDROID_API_KEY");
+  if (!entitlementId) missing.push("EXPO_PUBLIC_RC_ENTITLEMENT_ID");
+  return { platform, apiKeyPresent: !!apiKey, entitlementId, offeringId, missing };
+}
+
 let configuredForUser: string | null = null;
 
 export async function configureRevenueCat(appUserId: string): Promise<void> {

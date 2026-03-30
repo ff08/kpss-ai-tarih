@@ -20,9 +20,9 @@ import { setIntroWizardComplete } from "../../lib/onboardingStorage";
 
 /** Sıra: 1=ana ekran, 2=çalışma yolu, 3=sınavlar (kullanıcı görselleri) */
 const INTRO_IMAGES = [
-  require("../../assets/onboarding/intro-1.png"),
-  require("../../assets/onboarding/intro-2.png"),
-  require("../../assets/onboarding/intro-3.png"),
+  require("../../assets/onboarding/intro-1.jpg"),
+  require("../../assets/onboarding/intro-2.jpg"),
+  require("../../assets/onboarding/intro-3.jpg"),
 ] as const;
 
 type Slide = {

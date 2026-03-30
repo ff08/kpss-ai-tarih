@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import type { CatalogExamCalendarItem } from "../../lib/api";
@@ -7,35 +7,45 @@ import { fetchCatalogExamCalendar } from "../../lib/api";
 import type { ColorPalette } from "../../constants/theme";
 import { APP_TAGLINE } from "../../constants/app";
 import { useTheme } from "../../contexts/ThemeContext";
-import { getCountdownTo, formatTrDate } from "../../lib/examCountdown";
+import { getCountdownTo, examTargetDate, formatTrDate } from "../../lib/examCountdown";
+import { isExamActive, loadExamActivePrefs, saveExamActivePrefs, type ExamActivePrefs } from "../../lib/examPreferences";
 
-type FilterMode = "all" | "active" | "inactive";
+type FilterMode = "active" | "other";
 
 export default function ExamsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [items, setItems] = useState<CatalogExamCalendarItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [prefs, setPrefs] = useState<ExamActivePrefs>({});
+  const [loadedPrefs, setLoadedPrefs] = useState(false);
+
   const [now, setNow] = useState(() => Date.now());
-  const [filter, setFilter] = useState<FilterMode>("all");
+  const [filter, setFilter] = useState<FilterMode>("active");
 
   useEffect(() => {
-    let cancelled = false;
     void (async () => {
       try {
-        setLoading(true);
+        setLoadingItems(true);
+        setError(null);
         const rows = await fetchCatalogExamCalendar();
-        if (cancelled) return;
         setItems(rows);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sınav takvimi alınamadı");
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoadingItems(false);
       }
     })();
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    void loadExamActivePrefs().then((p) => {
+      setPrefs(p);
+      setLoadedPrefs(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -45,30 +55,54 @@ export default function ExamsScreen() {
 
   const nowDate = useMemo(() => new Date(now), [now]);
 
-  const filtered = useMemo(() => {
-    const base = items.filter((it) => {
-      if (filter === "all") return true;
-      if (filter === "active") return it.isActive;
-      return !it.isActive;
+  const setActive = useCallback((id: string, active: boolean) => {
+    setPrefs((prev) => {
+      const next = { ...prev };
+      if (active) {
+        // aktif ise saklama anahtarını kaldır
+        delete next[id];
+      } else {
+        next[id] = false;
+      }
+      void saveExamActivePrefs(next);
+      return next;
     });
+  }, []);
 
+  const filtered = useMemo(() => {
+    // prefs ile “aktif (favori/izlenen)” ve “diğer” ayrımı
+    const base = items.filter((it) => {
+      const key = String(it.id);
+      const a = isExamActive(key, prefs);
+      if (filter === "active") return a;
+      return !a;
+    });
     return base.sort((a, b) => a.examDate.localeCompare(b.examDate));
-  }, [items, filter]);
+  }, [items, prefs, filter]);
 
   const nextExamForHero = useMemo(() => {
-    const nowMs = nowDate.getTime();
-    return items
-      .filter((it) => it.isActive)
-      .map((it) => ({ it, deadlineMs: new Date(it.applicationDeadline).getTime() }))
-      .filter(({ deadlineMs }) => Number.isFinite(deadlineMs) && deadlineMs > nowMs)
-      .sort((a, b) => a.deadlineMs - b.deadlineMs)[0]?.it;
-  }, [items, nowDate]);
+    if (!loadedPrefs) return null;
+    const active = items.filter((it) => isExamActive(String(it.id), prefs));
+    const future = active
+      .map((it) => {
+        const t = examTargetDate(it.examDate);
+        return { it, t };
+      })
+      .filter(({ t }) => t.getTime() > nowDate.getTime())
+      .sort((a, b) => a.t.getTime() - b.t.getTime());
+    return future[0]?.it ?? null;
+  }, [items, prefs, loadedPrefs, nowDate]);
 
   const heroCountdown = useMemo(() => {
     if (!nextExamForHero) return null;
-    const deadline = new Date(nextExamForHero.applicationDeadline);
-    return getCountdownTo(deadline, nowDate);
+    const target = examTargetDate(nextExamForHero.examDate);
+    return getCountdownTo(target, nowDate);
   }, [nextExamForHero, nowDate]);
+
+  const heroEmpty =
+    filter === "active"
+      ? "Aktif sınav bulunmuyor."
+      : "Diğer sınavlar listesi boş.";
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
@@ -77,9 +111,8 @@ export default function ExamsScreen() {
       <View style={styles.filterRow}>
         {(
           [
-            { key: "all" as const, label: "Tümü" },
-            { key: "active" as const, label: "Aktif" },
-            { key: "inactive" as const, label: "Pasif" },
+            { key: "active" as const, label: "Aktif Sınavlarım" },
+            { key: "other" as const, label: "Diğer" },
           ] as const
         ).map(({ key, label }) => (
           <Pressable
@@ -92,9 +125,13 @@ export default function ExamsScreen() {
         ))}
       </View>
 
-      {loading ? (
+      {loadingItems || !loadedPrefs ? (
         <View style={styles.centered}>
           <Text style={styles.muted}>Yükleniyor…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
         <FlatList
@@ -104,14 +141,13 @@ export default function ExamsScreen() {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View style={styles.hero}>
-              <Text style={styles.heroLabel}>Başvuruya kalan süre</Text>
-
+              <Text style={styles.heroLabel}>Sınava Kalan Süre</Text>
               {nextExamForHero && heroCountdown && !heroCountdown.passed ? (
                 <>
                   <Text style={styles.heroExamTitle} numberOfLines={3}>
                     {nextExamForHero.title}
                   </Text>
-                  <Text style={styles.heroExamDate}>{formatTrDate(nextExamForHero.applicationDeadline)}</Text>
+                  <Text style={styles.heroExamDate}>{formatTrDate(nextExamForHero.examDate)}</Text>
                   <View style={styles.heroDigits}>
                     <DigitBox label="Gün" value={heroCountdown.days} colors={colors} />
                     <DigitBox label="Saat" value={heroCountdown.hours} colors={colors} />
@@ -120,22 +156,14 @@ export default function ExamsScreen() {
                   </View>
                 </>
               ) : (
-                <Text style={styles.heroEmpty}>
-                  Aktif ve başvurusu devam eden sınav bulunmuyor.
-                </Text>
+                <Text style={styles.heroEmpty}>{heroEmpty}</Text>
               )}
             </View>
           }
-          ListEmptyComponent={
-            <Text style={styles.empty}>
-              {filter === "all"
-                ? "Kayıt yok."
-                : filter === "active"
-                  ? "Aktif sınav yok."
-                  : "Pasif sınav yok."}
-            </Text>
-          }
-          renderItem={({ item }) => <ExamRow exam={item} now={nowDate} colors={colors} />}
+          ListEmptyComponent={<Text style={styles.empty}>Kayıt yok.</Text>}
+          renderItem={({ item }) => (
+            <ExamRow exam={item} now={nowDate} colors={colors} active={isExamActive(String(item.id), prefs)} onToggle={(on) => setActive(String(item.id), on)} />
+          )}
         />
       )}
     </SafeAreaView>
@@ -173,69 +201,53 @@ const digitStyles = StyleSheet.create({
   lbl: { fontSize: 11, fontWeight: "600", marginTop: 4 },
 });
 
-function StatusPill({ isActive, colors }: { isActive: boolean; colors: ColorPalette }) {
-  return (
-    <View
-      style={[
-        stylesLocal.statusPill,
-        isActive ? { backgroundColor: colors.tagBg, borderColor: colors.accent } : { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <Text style={[stylesLocal.statusText, isActive ? { color: colors.accent } : { color: colors.muted }]}>
-        {isActive ? "Aktif" : "Pasif"}
-      </Text>
-    </View>
-  );
-}
-
-const stylesLocal = StyleSheet.create({
-  statusPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignSelf: "flex-start",
-  },
-  statusText: { fontSize: 12, fontWeight: "700" },
-});
-
 function ExamRow({
   exam,
   now,
   colors,
+  active,
+  onToggle,
 }: {
   exam: CatalogExamCalendarItem;
   now: Date;
   colors: ColorPalette;
+  active: boolean;
+  onToggle: (on: boolean) => void;
 }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
-
   const deadline = new Date(exam.applicationDeadline);
   const cd = getCountdownTo(deadline, now);
-
   const examDateLabel = formatTrDate(exam.examDate);
 
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
         <View style={styles.cardText}>
-          <StatusPill isActive={exam.isActive} colors={colors} />
+          <Text style={styles.statusPill}>{exam.isActive ? "Aktif" : "Pasif"}</Text>
           <Text style={styles.examTitle}>{exam.title}</Text>
-          <Text style={styles.examDate}>{examDateLabel}</Text>
+          <Text style={styles.examDate}>
+            Sınav Tarihi: {examDateLabel}
+          </Text>
           {exam.description ? (
             <Text style={styles.examDesc} numberOfLines={3}>
               {exam.description}
             </Text>
           ) : null}
         </View>
+        <Switch
+          value={active}
+          onValueChange={onToggle}
+          trackColor={{ false: colors.border, true: colors.accent }}
+          thumbColor={colors.card}
+          ios_backgroundColor={colors.border}
+          accessibilityLabel="Favorilere ekle"
+        />
       </View>
 
       <View style={styles.rowCountdown}>
-        <Text style={styles.cdLabel}>Başvuruya kalan süre</Text>
+        <Text style={styles.cdLabel}>Sınav Başvurusuna Kalan Süre</Text>
         <Text style={styles.cdValue}>
-          {cd.passed
-            ? "Başvuru tarihi geçti"
-            : `${cd.days} gün ${cd.hours} sa ${cd.minutes} dk ${cd.seconds} sn`}
+          {cd.passed ? "Başvuru tarihi geçti" : `${cd.days} gün ${cd.hours} sa ${cd.minutes} dk ${cd.seconds} sn`}
         </Text>
       </View>
     </View>
@@ -267,6 +279,8 @@ function createStyles(colors: ColorPalette) {
     filterChipTextOn: { color: colors.accent },
     list: { flex: 1 },
     listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    muted: { color: colors.muted },
     hero: {
       backgroundColor: colors.card,
       borderRadius: 14,
@@ -288,8 +302,7 @@ function createStyles(colors: ColorPalette) {
     heroDigits: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -4 },
     heroEmpty: { color: colors.muted, fontSize: 14, lineHeight: 21 },
     empty: { color: colors.muted, textAlign: "center", padding: 24 },
-    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-    muted: { color: colors.muted },
+    errorText: { color: colors.accent, paddingHorizontal: 24, textAlign: "center", fontSize: 14, lineHeight: 20 },
     card: {
       backgroundColor: colors.card,
       borderRadius: 14,
@@ -300,7 +313,13 @@ function createStyles(colors: ColorPalette) {
     },
     cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     cardText: { flex: 1, minWidth: 0 },
-    examTitle: { color: colors.text, fontSize: 15, fontWeight: "700", lineHeight: 21, marginTop: 8 },
+    statusPill: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "700",
+      marginBottom: 8,
+    },
+    examTitle: { color: colors.text, fontSize: 15, fontWeight: "700", lineHeight: 21, marginTop: 0 },
     examDate: { color: colors.accent, fontSize: 13, fontWeight: "600", marginTop: 6 },
     examDesc: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 6 },
     rowCountdown: {

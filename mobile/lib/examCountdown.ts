@@ -2,7 +2,8 @@ import type { ExamRecord } from "../constants/exams";
 
 /** Sınav günü sabahı (yerel) — geri sayım hedefi */
 export function examTargetDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
+  const ymd = dateStr.includes("T") ? dateStr.slice(0, 10) : dateStr;
+  const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, m - 1, d, 9, 0, 0, 0);
 }
 

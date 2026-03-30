@@ -7,29 +7,114 @@
       "aciklama": "Türk adının anlamından başlayarak, Orta Asya kültürleri, ilk Türk devletleri ve bu devletlerin sosyo-kültürel yapılarının incelendiği başlangıç dönemi.",
       "alt_basliklar": [
         {
-          "id": "turk_adi_ve_yurdu",
-          "baslik": "Türk Adının Anlamı ve İlk Ana Yurdu",
-          "aciklama": "Türk kelimesinin kökeni, anlamı ve Türklerin tarih sahnesine çıktığı Orta Asya coğrafyasının özellikleri."
+          "id": "turk_adinin_anlami",
+          "baslik": "TÜRK ADININ ANLAMI",
+          "aciklama": "Türk adının kökeni, anlamı ve tarihî kaynaklardaki kullanımı."
         },
         {
-          "id": "orta_asya_kultur_ve_gocler",
-          "baslik": "Orta Asya Kültürleri ve Türk Göçleri",
-          "aciklama": "Anav, Afanesyevo gibi kültür merkezleri ve Türk boylarının dünyaya yayılma nedenleri ile sonuçları."
+          "id": "turklerin_ilk_ana_yurdu",
+          "baslik": "TÜRKLERİN İLK ANA YURDU",
+          "aciklama": "Orta Asya coğrafyası, bozkır hayatı ve ana yurt kavramı."
         },
         {
-          "id": "ilk_turk_devletleri",
-          "baslik": "Orta Asya'da Kurulan İlk Türk Devletleri",
-          "aciklama": "İskitler, Asya Hun, Kavimler Göçü, Avrupa Hun, Köktürk ve Uygur devletlerinin siyasi tarihleri."
+          "id": "orta_asya_kulturleri",
+          "baslik": "ORTA ASYA KÜLTÜRLERİ",
+          "aciklama": "Tarih öncesi ve antik dönem Orta Asya kültür merkezleri."
         },
         {
-          "id": "diger_turk_topluluklari",
-          "baslik": "Diğer Türk Devletleri ve Toplulukları",
-          "aciklama": "Hazarlar, Kıpçaklar, Peçenekler ve Oğuzlar gibi tarihte iz bırakmış diğer Türk boyları."
+          "id": "orta_asya_turk_gocleri",
+          "baslik": "ORTA ASYA TÜRK GÖÇLERİ",
+          "aciklama": "Göçlerin nedenleri, yönelimleri ve sonuçları."
         },
         {
-          "id": "islam_oncesi_kultur_uygarlik",
-          "baslik": "Kültür ve Uygarlık (Devlet, Ordu, Sosyal Yapı)",
-          "aciklama": "Kut inancı, kurultay, onlu sistem, töre hukuku ve Gök Tanrı inancını kapsayan toplumsal düzen."
+          "id": "orta_asyada_ilk_turk_devletleri",
+          "baslik": "ORTA ASYA'DA KURULAN İLK TÜRK DEVLETLERİ",
+          "aciklama": "İskitler, Hun ve benzeri ilk Türk siyasi oluşumları."
+        },
+        {
+          "id": "kavimler_gocu_ve_sonuclari",
+          "baslik": "KAVİMLER GÖÇÜ VE SONUÇLARI",
+          "aciklama": "Kavimler göçünün Avrupa ve dünya tarihine etkileri."
+        },
+        {
+          "id": "i_gokturk_devleti",
+          "baslik": "I. GÖKTÜRK DEVLETİ",
+          "aciklama": "Bumin Kağan dönemi ve devletin kuruluşu; doğu-batı kollar."
+        },
+        {
+          "id": "ii_gokturk_devleti",
+          "baslik": "II. GÖKTÜRK DEVLETİ",
+          "aciklama": "Kutluk (İlteriş) Kağan ile yeniden kuruluş ve Orhun abideleri çizgisi."
+        },
+        {
+          "id": "mete_han_donemi",
+          "baslik": "METE HAN DÖNEMİ",
+          "aciklama": "Asya Hun İmparatorluğu ve Mete Han’ın siyasî-askerî düzeni."
+        },
+        {
+          "id": "uygur_devleti",
+          "baslik": "UYGUR DEVLETİ",
+          "aciklama": "Uygurların kurduğu devlet, Mani dininin yayılışı ve yerleşik hayata geçiş."
+        },
+        {
+          "id": "diger_turk_devletleri_ve_topluluklari",
+          "baslik": "DİĞER TÜRK DEVLETLERİ VE TOPLULUKLARI",
+          "aciklama": "Hazar, Kıpçak, Peçenek, Oğuz ve benzeri boy ve devletler."
+        },
+        {
+          "id": "kultur_ve_uygarlik",
+          "baslik": "KÜLTÜR VE UYGARLIK",
+          "aciklama": "İslamiyet öncesi Türk kültür ve uygarlığının genel çerçevesi."
+        },
+        {
+          "id": "devlet_yonetimi",
+          "baslik": "DEVLET YÖNETİMİ",
+          "aciklama": "Kağanlık, kurultay, töre ve merkez-taşra ilişkileri."
+        },
+        {
+          "id": "ordu_yapilanmasi",
+          "baslik": "ORDU YAPILANMASI",
+          "aciklama": "Ordu teşkilatı, onlu sistem ve askerî yapı."
+        },
+        {
+          "id": "din_ve_inanis",
+          "baslik": "DİN VE İNANIŞ",
+          "aciklama": "Gök Tanrı inancı, kut ve diğer inanç unsurları."
+        },
+        {
+          "id": "hukuki_yapilanma",
+          "baslik": "HUKUKİ YAPILANMA",
+          "aciklama": "Töre, adet hukuku ve yargı anlayışı."
+        },
+        {
+          "id": "sosyal_hayat",
+          "baslik": "SOSYAL HAYAT",
+          "aciklama": "Aile, boy ve toplumsal ilişkiler."
+        },
+        {
+          "id": "ekonomik_hayat",
+          "baslik": "EKONOMİK HAYAT",
+          "aciklama": "Hayvancılık, ticaret ve geçim kaynakları."
+        },
+        {
+          "id": "yazi_dil_ve_edebiyat",
+          "baslik": "YAZI, DİL VE EDEBİYAT",
+          "aciklama": "Göktürk alfabesi, Yenisey ve Orhun yazıtları; sözlü/edebî gelenek."
+        },
+        {
+          "id": "turk_destanlari",
+          "baslik": "TÜRK DESTANLARI",
+          "aciklama": "Destan türü ve temsilî örnekler."
+        },
+        {
+          "id": "bilim_ve_egitim",
+          "baslik": "BİLİM VE EĞİTİM",
+          "aciklama": "Bilim, gökbilim ve eğitimle ilgili unsurlar."
+        },
+        {
+          "id": "sanat",
+          "baslik": "SANAT",
+          "aciklama": "Mimari, musiki ve el sanatları."
         }
       ]
     },

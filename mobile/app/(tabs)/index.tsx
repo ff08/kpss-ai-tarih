@@ -130,7 +130,7 @@ export default function TopicsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, premium } = useAuth();
   const { getOverall, reload: reloadProgress } = useStudyProgress();
 
   useFocusEffect(
@@ -213,6 +213,7 @@ export default function TopicsScreen() {
     );
     const unlocked = sortedTopics.map((topic, i) => {
       if (i === 0) return true;
+      if (premium) return true;
       const prev = sortedTopics[i - 1]!;
       if (topicTotalCardsFromTopic(prev) === 0) return true;
       return (percents[i - 1] ?? 0) >= UNLOCK_NEXT_TOPIC_PERCENT;
@@ -222,7 +223,7 @@ export default function TopicsScreen() {
       percent: percents[i] ?? 0,
       unlocked: unlocked[i] ?? false,
     }));
-  }, [sortedTopics, subtopicsByTopicId, getOverall]);
+  }, [sortedTopics, subtopicsByTopicId, getOverall, premium]);
 
   const globalPercent = useMemo(() => {
     const all = sortedTopics.flatMap((t) => subtopicsByTopicId[t.id] ?? []);
@@ -234,11 +235,9 @@ export default function TopicsScreen() {
   const cardWidth = (slideWidth - GRID_GAP) / 2;
 
   const onLockedPress = useCallback(() => {
-    Alert.alert(
-      "Kilitli ünite",
-      `Bir sonraki üniteyi açmak için önceki ünitede en az %${UNLOCK_NEXT_TOPIC_PERCENT} ilerleme kaydetmelisin.`,
-    );
-  }, []);
+    if (premium) return;
+    router.push("/premium");
+  }, [router, premium]);
 
   const listHeader = useMemo(
     () => (

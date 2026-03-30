@@ -20,10 +20,10 @@ const GAP_TOPIC_CARD_TO_FLOW = 20;
 const GAP_FLOW_TO_NEXT_TOPIC_CARD = 28;
 
 const MODE_LABEL: Record<CardKind, string> = {
-  INFORMATION: "Bilgi kartları",
-  OPEN_QA: "Soru–cevap",
-  MCQ: "Çoktan seçmeli",
-  WORD_GAME: "Kelime oyunu",
+  INFORMATION: "Bilgi Kartı",
+  OPEN_QA: "Soru - Cevap",
+  MCQ: "Çoktan Seçmeli",
+  WORD_GAME: "Kelime Bulmaca",
 };
 
 export type StudyModePathStepPayload = {

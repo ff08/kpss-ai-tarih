@@ -54,10 +54,10 @@ import {
 } from "../../lib/studyProgress";
 
 const MODE_LABELS: Record<CardKind, string> = {
-  INFORMATION: "Bilgi kartları",
-  OPEN_QA: "Soru–cevap",
-  MCQ: "Çoktan seçmeli",
-  WORD_GAME: "Kelime oyunu",
+  INFORMATION: "Bilgi Kartı",
+  OPEN_QA: "Soru - Cevap",
+  MCQ: "Çoktan Seçmeli",
+  WORD_GAME: "Kelime Bulmaca",
 };
 const EMPTY_MODE_COUNTS: Record<CardKind, number> = {
   INFORMATION: 0,

@@ -1,30 +1,67 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { APP_NAME } from "../constants/app";
 import type { ColorPalette } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
-import { fetchBillingPlans } from "../lib/authApi";
+import { fetchBillingPlans, syncRevenueCatSubscription } from "../lib/authApi";
 import { useTheme } from "../contexts/ThemeContext";
+import Purchases, { type PurchasesPackage } from "react-native-purchases";
+import { Platform } from "react-native";
+import {
+  configureRevenueCat,
+  entitlementFromCustomerInfo,
+  getPremiumOffering,
+  inferPlanFromProductId,
+  isRevenueCatConfigured,
+  pickMonthlyYearlyPackages,
+} from "../lib/revenuecat";
 
 export default function PremiumScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { premium } = useAuth();
+  const { premium, token, user, refreshUser } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [plans, setPlans] = useState<
     { id: string; plan: string; label: string; priceLabel: string; savingsHint?: string }[] | null
   >(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string>("YEARLY");
+  const [packages, setPackages] = useState<{ monthly: PurchasesPackage | null; yearly: PurchasesPackage | null } | null>(null);
+  const [buying, setBuying] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchBillingPlans();
-      setPlans(data.plans);
+      const fallback = await fetchBillingPlans().catch(() => null);
+      if (isRevenueCatConfigured() && user?.id) {
+        await configureRevenueCat(user.id);
+        const off = await getPremiumOffering();
+        if (off) {
+          const picked = pickMonthlyYearlyPackages(off);
+          setPackages(picked);
+          const show = [
+            {
+              id: "MONTHLY",
+              plan: "MONTHLY",
+              label: "Aylık",
+              priceLabel: picked.monthly?.product.priceString ?? "₺129",
+            },
+            {
+              id: "YEARLY",
+              plan: "YEARLY",
+              label: "Yıllık",
+              priceLabel: picked.yearly?.product.priceString ?? "₺1290",
+              savingsHint: "2 ay indirim",
+            },
+          ];
+          setPlans(show);
+          return;
+        }
+      }
+      setPlans(fallback?.plans ?? []);
     } catch {
       setPlans([]);
     } finally {
@@ -96,12 +133,83 @@ export default function PremiumScreen() {
         ) : null}
 
         <Pressable
-          style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
-          onPress={() => {
-            /* Stripe / ödeme entegrasyonu */
+          style={({ pressed }) => [styles.cta, (pressed || buying) && { opacity: 0.9 }]}
+          disabled={buying}
+          onPress={async () => {
+            if (!token || !user?.id) {
+              Alert.alert("Giriş gerekli", "Premium satın almak için giriş yapmalısın.");
+              return;
+            }
+            if (!isRevenueCatConfigured()) {
+              Alert.alert("RevenueCat ayarı eksik", "Uygulama yapılandırması tamamlanmamış.");
+              return;
+            }
+            const pkg =
+              selected === "YEARLY" ? packages?.yearly : packages?.monthly;
+            if (!pkg) {
+              Alert.alert("Paket bulunamadı", "Ürünler yüklenemedi. Tekrar dene.");
+              return;
+            }
+            setBuying(true);
+            try {
+              const { customerInfo } = await Purchases.purchasePackage(pkg);
+              const ent = entitlementFromCustomerInfo(customerInfo);
+              if (!ent.productId) {
+                throw new Error("Entitlement aktif görünmüyor.");
+              }
+              await syncRevenueCatSubscription(token, {
+                entitlementId: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
+                isActive: ent.isActive,
+                productId: ent.productId,
+                plan: inferPlanFromProductId(ent.productId),
+                currentPeriodEnd: ent.expiresAtIso,
+                appUserId: user.id,
+                platform: Platform.OS === "ios" ? "ios" : "android",
+              });
+              await refreshUser();
+              router.back();
+            } catch (e) {
+              // Kullanıcı iptali sessiz
+              if (e && typeof e === "object" && "userCancelled" in (e as object)) return;
+              Alert.alert("Satın alma başarısız", e instanceof Error ? e.message : "Bir hata oluştu");
+            } finally {
+              setBuying(false);
+            }
           }}
         >
-          <Text style={styles.ctaText}>Devam et (yakında)</Text>
+          <Text style={styles.ctaText}>{buying ? "Satın alınıyor…" : "Satın al"}</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.restoreBtn, pressed && { opacity: 0.9 }]}
+          onPress={async () => {
+            if (!token || !user?.id) return;
+            if (!isRevenueCatConfigured()) return;
+            setBuying(true);
+            try {
+              await configureRevenueCat(user.id);
+              const ci = await Purchases.restorePurchases();
+              const ent = entitlementFromCustomerInfo(ci);
+              if (!ent.productId) return;
+              await syncRevenueCatSubscription(token, {
+                entitlementId: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
+                isActive: ent.isActive,
+                productId: ent.productId,
+                plan: inferPlanFromProductId(ent.productId),
+                currentPeriodEnd: ent.expiresAtIso,
+                appUserId: user.id,
+                platform: Platform.OS === "ios" ? "ios" : "android",
+              });
+              await refreshUser();
+              Alert.alert("Geri yüklendi", "Premium durumun güncellendi.");
+            } finally {
+              setBuying(false);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Satın alımı geri yükle"
+        >
+          <Text style={styles.restoreText}>Satın alımı geri yükle</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -152,5 +260,15 @@ function createStyles(colors: ColorPalette) {
       alignItems: "center",
     },
     ctaText: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
+    restoreBtn: {
+      marginTop: 14,
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    restoreText: { color: colors.text, fontSize: 14, fontWeight: "700" },
   });
 }

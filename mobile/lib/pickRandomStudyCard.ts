@@ -8,6 +8,13 @@ export type RandomPickResult = {
   subtopicId: number;
 };
 
+export type RandomPickOptions = {
+  /** Sadece bu topicId’lerden seçim yapılır (Keşfet kilit filtresi). */
+  allowedTopicIds?: number[];
+  /** Boş deck’lerde kaç kez denensin. */
+  maxAttempts?: number;
+};
+
 const KINDS: CardKind[] = ["INFORMATION", "OPEN_QA", "MCQ"];
 
 function randomItem<T>(arr: T[]): T | undefined {
@@ -18,8 +25,13 @@ function randomItem<T>(arr: T[]): T | undefined {
 /**
  * Rastgele konu → alt konu → kart türü → kart seçer. Boş deck’lerde birkaç kez dener.
  */
-export async function pickRandomStudyCard(maxAttempts = 48): Promise<RandomPickResult | null> {
-  const topics = await fetchTopics();
+export async function pickRandomStudyCard(options: RandomPickOptions = {}): Promise<RandomPickResult | null> {
+  const { allowedTopicIds, maxAttempts = 48 } = options;
+  const allTopics = await fetchTopics();
+  const topics =
+    allowedTopicIds && allowedTopicIds.length > 0
+      ? allTopics.filter((t) => allowedTopicIds.includes(t.id))
+      : allTopics;
   if (topics.length === 0) return null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

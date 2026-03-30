@@ -21,6 +21,11 @@ import { MdText } from "../../components/MdText";
 import { Image as ExpoImage } from "expo-image";
 import type { ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../contexts/ThemeContext";
+import { UNLOCK_NEXT_TOPIC_PERCENT } from "../../constants/unlock";
+import { useStudyProgress } from "../../contexts/StudyProgressContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { fetchSubtopics, fetchTopics } from "../../lib/api";
+import { aggregateWeightedPercent, topicTotalCardsFromTopic } from "../../lib/studyProgress";
 import { pickRandomStudyCard, type RandomPickResult } from "../../lib/pickRandomStudyCard";
 
 const MCQ_SECONDS = 60;
@@ -214,6 +219,8 @@ export default function RandomScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+  const { premium } = useAuth();
+  const { getOverall, reload: reloadProgress } = useStudyProgress();
   const [items, setItems] = useState<RandomFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -223,19 +230,20 @@ export default function RandomScreen() {
   const [mcqPaused, setMcqPaused] = useState(false);
   const loadRunRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appendInFlightRef = useRef(false);
+  const allowedTopicIdsRef = useRef<number[] | null>(null);
 
   const appendOne = useCallback(async (): Promise<boolean> => {
     if (appendInFlightRef.current) return false;
     appendInFlightRef.current = true;
     try {
-      const r = await pickRandomStudyCard();
+      const r = await pickRandomStudyCard({ allowedTopicIds: allowedTopicIdsRef.current ?? undefined });
       if (!r) return false;
       setItems((prev) => [...prev, { ...r, feedKey: makeFeedKey() }]);
       return true;
     } finally {
       appendInFlightRef.current = false;
     }
-  }, []);
+  }, [getOverall, premium, reloadProgress]);
 
   const loadFeed = useCallback(async () => {
     setError(null);
@@ -246,9 +254,28 @@ export default function RandomScreen() {
     setMcqTimeLeft(MCQ_SECONDS);
     setMcqPaused(false);
     try {
+      // Keşfet: sadece kilidi açılmış ünitelerden seçim yap.
+      await reloadProgress();
+      const topics = await fetchTopics();
+      const sortedTopics = [...topics].sort((a, b) => a.sortOrder - b.sortOrder);
+      const subPairs = await Promise.all(sortedTopics.map((t) => fetchSubtopics(t.id)));
+      const subtopicsByTopicId: Record<number, (typeof subPairs)[number]["subtopics"]> = {};
+      sortedTopics.forEach((t, i) => {
+        subtopicsByTopicId[t.id] = subPairs[i]?.subtopics ?? [];
+      });
+      const percents = sortedTopics.map((t) => aggregateWeightedPercent(subtopicsByTopicId[t.id] ?? [], getOverall));
+      const unlocked = sortedTopics.map((t, i) => {
+        if (i === 0) return true;
+        const prev = sortedTopics[i - 1]!;
+        if (topicTotalCardsFromTopic(prev) === 0) return true;
+        return (percents[i - 1] ?? 0) >= UNLOCK_NEXT_TOPIC_PERCENT;
+      });
+      const allowedTopicIds = premium ? sortedTopics.map((t) => t.id) : sortedTopics.filter((_, i) => unlocked[i]).map((t) => t.id);
+      allowedTopicIdsRef.current = allowedTopicIds;
+
       const acc: RandomFeedItem[] = [];
       for (let a = 0; a < MAX_PICK_ATTEMPTS && acc.length < MIN_INITIAL_CARDS; a++) {
-        const r = await pickRandomStudyCard();
+        const r = await pickRandomStudyCard({ allowedTopicIds });
         if (r) acc.push({ ...r, feedKey: makeFeedKey() });
       }
       if (acc.length === 0) {

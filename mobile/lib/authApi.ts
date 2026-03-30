@@ -134,3 +134,28 @@ export async function fetchBillingPlans(): Promise<{
   if (!r.ok) throw new Error("Planlar alınamadı");
   return r.json();
 }
+
+export async function syncRevenueCatSubscription(
+  token: string,
+  payload: {
+    entitlementId: string;
+    isActive: boolean;
+    productId: string;
+    plan: "MONTHLY" | "YEARLY";
+    currentPeriodEnd?: string | null;
+    appUserId: string;
+    platform?: "ios" | "android";
+  },
+): Promise<{ premium: boolean; subscription: { plan: string; status: string; currentPeriodEnd: string | null } | null }> {
+  const r = await fetch(`${base()}/billing/revenuecat/sync`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const j = (await r.json().catch(() => ({}))) as
+    | { ok: true; premium: boolean; subscription: { plan: string; status: string; currentPeriodEnd: string | null } }
+    | { error?: string };
+  if (!r.ok) throw new Error(("error" in j && j.error) ? j.error : "Satın alım senkronlanamadı");
+  if (!("ok" in j) || !j.ok) throw new Error("Satın alım senkronlanamadı");
+  return { premium: j.premium, subscription: j.subscription ?? null };
+}

@@ -15,6 +15,7 @@ import { ScreenHeader } from "../../components/ScreenHeader";
 import { StudyModePath } from "../../components/StudyModePath";
 import { APP_TAGLINE } from "../../constants/app";
 import type { ColorPalette } from "../../constants/theme";
+import { useAuth } from "../../contexts/AuthContext";
 import { useStudyProgress } from "../../contexts/StudyProgressContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { fetchSubtopics, type Subtopic } from "../../lib/api";
@@ -30,6 +31,7 @@ import {
 export default function TopicStudyPathScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const { colors } = useTheme();
+  const { premium } = useAuth();
   const { getSubtopic, progress } = useStudyProgress();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
@@ -73,10 +75,10 @@ export default function TopicStudyPathScreen() {
       subtopicId: st.id,
       title: st.title,
       description: buildSubtopicCardDescription(st, index),
-      locked: !isSubtopicUnlockedByOrder(st.id, sortedSubtopics, getSubtopic),
+      locked: premium ? false : !isSubtopicUnlockedByOrder(st.id, sortedSubtopics, getSubtopic),
       steps: topicPathSteps.filter((s) => s.subtopicId === st.id),
     }));
-  }, [sortedSubtopics, topicPathSteps, getSubtopic, progress]);
+  }, [sortedSubtopics, topicPathSteps, getSubtopic, progress, premium]);
 
   const allSubtopicsComplete = useMemo(() => {
     if (sortedSubtopics.length === 0) return false;

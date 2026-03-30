@@ -490,20 +490,291 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
           id: "MONTHLY",
           plan: "MONTHLY",
           label: "Aylık",
-          priceMinor: 9900,
-          priceLabel: "₺99",
+          priceMinor: 12900,
+          priceLabel: "₺129",
           period: "month",
         },
         {
           id: "YEARLY",
           plan: "YEARLY",
           label: "Yıllık",
-          priceMinor: 79900,
-          priceLabel: "₺799",
+          priceMinor: 129000,
+          priceLabel: "₺1290",
           period: "year",
-          savingsHint: "2 ay bedava",
+          savingsHint: "2 ay indirim",
         },
       ],
     };
+  });
+
+  const syncRevenueCatBody = z.object({
+    /** RevenueCat entitlement id (örn: premium) */
+    entitlementId: z.string().min(1).max(80),
+    /** RevenueCat app user id (bizde user.id ile eşleştiriyoruz) */
+    appUserId: z.string().min(1).max(80),
+    /** iOS | Android */
+    platform: z.enum(["ios", "android"]).optional(),
+  });
+
+  const RC_BASE = "https://api.revenuecat.com/v1";
+
+  async function fetchRevenueCatSubscriber(appUserId: string): Promise<{
+    entitlement: {
+      expiresDate: Date | null;
+      productIdentifier: string | null;
+      purchaseDate: Date | null;
+    } | null;
+  }> {
+    const key = process.env.REVENUECAT_SECRET_API_KEY;
+    if (!key) {
+      throw new Error("REVENUECAT_SECRET_API_KEY eksik");
+    }
+    const res = await fetch(`${RC_BASE}/subscribers/${encodeURIComponent(appUserId)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`RevenueCat doğrulama hatası (${res.status}): ${t.slice(0, 400)}`);
+    }
+    const j = (await res.json()) as {
+      subscriber?: {
+        entitlements?: Record<
+          string,
+          {
+            expires_date: string | null;
+            product_identifier: string | null;
+            purchase_date: string | null;
+          }
+        >;
+      };
+    };
+    const entId = process.env.REVENUECAT_ENTITLEMENT_ID ?? "premium";
+    const ent = j.subscriber?.entitlements?.[entId];
+    if (!ent) return { entitlement: null };
+    return {
+      entitlement: {
+        expiresDate: ent.expires_date ? new Date(ent.expires_date) : null,
+        productIdentifier: ent.product_identifier ?? null,
+        purchaseDate: ent.purchase_date ? new Date(ent.purchase_date) : null,
+      },
+    };
+  }
+
+  function planFromProductId(productId: string | null): "MONTHLY" | "YEARLY" {
+    const p = (productId ?? "").toLowerCase();
+    if (p.includes("year") || p.includes("annual")) return "YEARLY";
+    if (p.includes("month") || p.includes("monthly")) return "MONTHLY";
+    return "MONTHLY";
+  }
+
+  /**
+   * RevenueCat satın alım / restore sonrası aboneliği sunucuya senkronlar.
+   * Güvenlik: sunucu, RevenueCat REST API’den subscriber bilgisini çekerek doğrular.
+   */
+  app.post("/billing/revenuecat/sync", async (request, reply) => {
+    const token = authHeaderToken(request.headers.authorization);
+    if (!token) return reply.status(401).send({ error: "Yetkisiz" });
+
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: { select: { id: true } } },
+    });
+    if (!session || session.expiresAt < new Date()) {
+      return reply.status(401).send({ error: "Oturum geçersiz" });
+    }
+
+    const parsed = syncRevenueCatBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Geçersiz istek" });
+    }
+    const b = parsed.data;
+    if (b.appUserId !== session.user.id) {
+      return reply.status(403).send({ error: "Bu kullanıcı için işlem yapılamaz" });
+    }
+
+    let rc;
+    try {
+      rc = await fetchRevenueCatSubscriber(session.user.id);
+    } catch (e) {
+      await prisma.appLog.create({
+        data: {
+          level: AppLogLevel.ERROR,
+          action: "revenuecat_verify_failed",
+          userId: session.user.id,
+          meta: { message: e instanceof Error ? e.message : "verify failed" } as object,
+        },
+      });
+      return reply.status(502).send({ error: "Satın alma doğrulanamadı" });
+    }
+
+    const ent = rc.entitlement;
+    const end = ent?.expiresDate ?? null;
+    const productId = ent?.productIdentifier ?? null;
+    const isActive = !!end && end > new Date();
+    const plan = planFromProductId(productId);
+    const status = isActive ? SubscriptionStatus.ACTIVE : SubscriptionStatus.EXPIRED;
+
+    const sub = await prisma.subscription.upsert({
+      where: { userId: session.user.id },
+      create: {
+        userId: session.user.id,
+        plan,
+        status,
+        currentPeriodEnd: end,
+        provider: "revenuecat",
+        externalId: productId ?? "unknown",
+      },
+      update: {
+        plan,
+        status,
+        currentPeriodEnd: end,
+        provider: "revenuecat",
+        externalId: productId ?? "unknown",
+      },
+    });
+
+    await prisma.appLog.create({
+      data: {
+        level: AppLogLevel.INFO,
+        action: "revenuecat_sync",
+        userId: session.user.id,
+        meta: {
+          entitlementId: b.entitlementId,
+          isActive,
+          productId,
+          plan,
+          currentPeriodEnd: end?.toISOString() ?? null,
+          platform: b.platform ?? null,
+        } as object,
+      },
+    });
+
+    const premium = sub.status === SubscriptionStatus.ACTIVE && !!sub.currentPeriodEnd && sub.currentPeriodEnd > new Date();
+    return {
+      ok: true,
+      premium,
+      subscription: {
+        plan: sub.plan,
+        status: sub.status,
+        currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
+      },
+    };
+  });
+
+  const revenueCatWebhookBody = z
+    .object({
+      api_version: z.string().optional(),
+      event: z.object({
+        id: z.string().min(1).max(120),
+        type: z.string().min(1).max(120),
+        app_user_id: z.string().min(1).max(80),
+        environment: z.string().optional(),
+        product_id: z.string().optional(),
+        entitlement_id: z.string().optional(),
+        period_type: z.string().optional(),
+        purchased_at_ms: z.number().optional(),
+        expiration_at_ms: z.number().optional(),
+      }),
+    })
+    .passthrough();
+
+  /**
+   * RevenueCat webhook: abonelik durumunu DB’ye otomatik senkronlar.
+   * Güvenlik: RevenueCat dashboard’ta ayarlanan Authorization header değeri birebir eşleşmeli.
+   *
+   * Env:
+   * - REVENUECAT_WEBHOOK_SECRET: beklenen Authorization header değeri (örn: "Bearer rc_wh_...").
+   */
+  app.post("/billing/revenuecat/webhook", async (request, reply) => {
+    const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
+    if (!expected) {
+      return reply.status(500).send({ error: "Webhook yapılandırması eksik" });
+    }
+    const auth = request.headers.authorization ?? "";
+    if (auth !== expected) {
+      return reply.status(401).send({ error: "Yetkisiz" });
+    }
+
+    const parsed = revenueCatWebhookBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Geçersiz istek" });
+    }
+    const { event } = parsed.data;
+
+    const userId = event.app_user_id;
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) {
+      await prisma.appLog.create({
+        data: {
+          level: AppLogLevel.WARN,
+          action: "revenuecat_webhook_unknown_user",
+          userId: null,
+          meta: { eventId: event.id, type: event.type, appUserId: userId } as object,
+        },
+      });
+      // RevenueCat retry etmesin; bizde kullanıcı yok.
+      return { ok: true };
+    }
+
+    let rc;
+    try {
+      rc = await fetchRevenueCatSubscriber(userId);
+    } catch (e) {
+      await prisma.appLog.create({
+        data: {
+          level: AppLogLevel.ERROR,
+          action: "revenuecat_webhook_verify_failed",
+          userId,
+          meta: { eventId: event.id, type: event.type, message: e instanceof Error ? e.message : "verify failed" } as object,
+        },
+      });
+      // RevenueCat retry edebilir; geçici hata olabilir.
+      return reply.status(502).send({ error: "Doğrulama hatası" });
+    }
+
+    const ent = rc.entitlement;
+    const end = ent?.expiresDate ?? null;
+    const productId = ent?.productIdentifier ?? null;
+    const isActive = !!end && end > new Date();
+    const plan = planFromProductId(productId);
+    const status = isActive ? SubscriptionStatus.ACTIVE : SubscriptionStatus.EXPIRED;
+
+    const sub = await prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        plan,
+        status,
+        currentPeriodEnd: end,
+        provider: "revenuecat",
+        externalId: productId ?? "unknown",
+      },
+      update: {
+        plan,
+        status,
+        currentPeriodEnd: end,
+        provider: "revenuecat",
+        externalId: productId ?? "unknown",
+      },
+    });
+
+    await prisma.appLog.create({
+      data: {
+        level: AppLogLevel.INFO,
+        action: "revenuecat_webhook_sync",
+        userId,
+        meta: {
+          eventId: event.id,
+          type: event.type,
+          environment: event.environment ?? null,
+          productId,
+          plan,
+          currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
+          status: sub.status,
+        } as object,
+      },
+    });
+
+    return { ok: true };
   });
 }
